@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#2563eb"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Informes Obra"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<title>Informes de Obra</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fff;min-height:100vh;display:flex;justify-content:center}
+#app{width:100%;max-width:480px;min-height:100vh;background:#fff;display:flex;flex-direction:column;position:relative}
+main{flex:1;overflow-y:auto;padding-bottom:72px}
+
+/* Nav */
+nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid #e2e8f0;display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom,0)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0 8px;font-size:11px;font-weight:600;color:#94a3b8;border:none;background:none;cursor:pointer;gap:3px;transition:color .15s}
+.nav-btn.active{color:#2563eb}
+.nav-btn svg{width:20px;height:20px}
+
+/* Pages */
+.page{display:none;min-height:100%}
+.page.active{display:block}
+
+/* Header */
+.page-header{padding: 52px 20px 16px;border-bottom:1px solid #f1f5f9;background:#fff}
+.page-header h1{font-size:20px;font-weight:700;color:#0f172a}
+.hero{background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;padding:56px 20px 28px}
+.hero .week-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#bfdbfe;margin-bottom:4px}
+.hero h1{font-size:24px;font-weight:800;letter-spacing:-.3px}
+.hero .week-info{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;color:#bfdbfe}
+
+/* Cards */
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card+.card{margin-top:12px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;border:none;border-radius:12px;cursor:pointer;transition:all .15s;font-size:14px;padding:12px 18px}
+.btn-primary{background:#2563eb;color:#fff}.btn-primary:hover{background:#1d4ed8}.btn-primary:disabled{opacity:.5;cursor:default}
+.btn-secondary{background:#f1f5f9;color:#475569}.btn-secondary:hover{background:#e2e8f0}
+.btn-danger{background:#fef2f2;color:#dc2626}.btn-danger:hover{background:#fee2e2}
+.btn-sm{padding:8px 14px;font-size:13px;border-radius:10px}
+.btn-full{width:100%}
+.btn-icon{width:36px;height:36px;padding:0;border-radius:10px}
+
+/* Form */
+.form-group{margin-bottom:16px}
+label.lbl{display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px}
+.inp{width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px 14px;font-size:14px;color:#0f172a;outline:none;font-family:inherit;transition:border-color .15s}
+.inp:focus{border-color:#2563eb;background:#fff}
+textarea.inp{resize:vertical;min-height:110px;line-height:1.6}
+
+/* Section title */
+.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:12px}
+
+/* Step bar */
+.step-bar{display:flex;gap:6px;justify-content:center;padding:12px 0 4px}
+.step-dot{height:8px;border-radius:99px;background:#e2e8f0;transition:all .3s}
+.step-dot.done{background:#93c5fd;width:8px}
+.step-dot.active{background:#2563eb;width:24px}
+.step-dot.pending{width:8px}
+
+/* Tags */
+.tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700}
+.tag-blue{background:#eff6ff;color:#1d4ed8}
+.tag-green{background:#f0fdf4;color:#15803d}
+.tag-amber{background:#fffbeb;color:#b45309}
+
+/* Worker row */
+.worker-row{display:flex;align-items:center;gap:12px;background:#f8fafc;border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.worker-avatar{width:34px;height:34px;background:#dbeafe;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.worker-info{flex:1;min-width:0}
+.worker-name{font-weight:600;font-size:14px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.worker-role{font-size:12px;color:#64748b}
+
+/* Photo grid */
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.photo-cell{aspect-ratio:1;border-radius:12px;overflow:hidden;position:relative;background:#f1f5f9}
+.photo-cell img{width:100%;height:100%;object-fit:cover}
+.photo-del{position:absolute;top:4px;right:4px;width:22px;height:22px;background:rgba(0,0,0,.6);border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;line-height:1}
+.photo-add{aspect-ratio:1;border-radius:12px;border:2px dashed #cbd5e1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;color:#94a3b8;background:none;font-size:12px;font-weight:600}
+.photo-add:hover{background:#f8fafc}
+.photo-add svg{width:24px;height:24px}
+
+/* Prev week box */
+.prev-box{background:#fffbeb;border:1.5px solid #fde68a;border-radius:14px;padding:14px 16px;margin-bottom:16px}
+.prev-box .prev-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:6px}
+.prev-box p{font-size:13px;color:#78350f;line-height:1.6;white-space:pre-wrap}
+
+/* Comparison split */
+.cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.cmp-col{background:#f8fafc;border-radius:12px;padding:12px}
+.cmp-col .cmp-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.cmp-col.prev .cmp-label{color:#b45309}
+.cmp-col.done .cmp-label{color:#15803d}
+.cmp-col p{font-size:12px;color:#374151;line-height:1.6;white-space:pre-wrap}
+
+/* Summary rows */
+.sum-row{display:flex;justify-content:space-between;align-items:start;gap:12px;padding:8px 0;border-bottom:1px solid #f1f5f9}
+.sum-row:last-child{border-bottom:none}
+.sum-key{font-size:12px;color:#64748b;flex-shrink:0}
+.sum-val{font-size:12px;font-weight:600;color:#0f172a;text-align:right}
+
+/* Alerts */
+.alert{display:flex;align-items:start;gap:10px;padding:12px 14px;border-radius:12px;font-size:13px;font-weight:500;margin-bottom:12px}
+.alert-success{background:#f0fdf4;color:#15803d}
+.alert-error{background:#fef2f2;color:#b91c1c}
+.alert svg{width:16px;height:16px;flex-shrink:0;margin-top:1px}
+
+/* Transitions */
+.slide-in{animation:slideIn .2s ease-out}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+/* Utils */
+.px-4{padding-left:16px;padding-right:16px}
+.py-4{padding-top:16px;padding-bottom:16px}
+.py-5{padding-top:20px;padding-bottom:20px}
+.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}.mt-5{margin-top:20px}
+.mb-2{margin-bottom:8px}.mb-3{margin-bottom:12px}
+.flex{display:flex}.gap-2{gap:8px}.gap-3{gap:12px}.items-center{align-items:center}
+.text-center{text-align:center}
+.text-sm{font-size:13px}.text-xs{font-size:11px}
+.text-muted{color:#64748b}
+.font-bold{font-weight:700}
+.empty-state{text-align:center;padding:60px 20px}
+.empty-icon{font-size:56px;margin-bottom:16px}
+.empty-state h2{font-size:18px;font-weight:700;color:#0f172a;margin-bottom:8px}
+.empty-state p{font-size:14px;color:#64748b;margin-bottom:24px}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:20px 20px 32px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-header h2{font-size:18px;font-weight:700}
+.close-btn{width:32px;height:32px;background:#f1f5f9;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}
+
+/* Form footer */
+.form-footer{padding:12px 16px;border-top:1px solid #f1f5f9;background:#fff;display:flex;gap:10px}
+
+/* Info box */
+.info-box{background:#eff6ff;border-radius:12px;padding:12px 14px;font-size:12px;color:#1d4ed8;line-height:1.6;margin-top:12px}
+
+@media (prefers-color-scheme:dark){
+  body{background:#0f172a}
+  #app{background:#1e293b}
+  .hero{background:linear-gradient(135deg,#1e3a8a,#1d4ed8)}
+  .page-header{background:#1e293b;border-color:#334155}
+  .card{background:#1e293b;border-color:#334155}
+  .inp{background:#0f172a;border-color:#334155;color:#f1f5f9}
+  .inp:focus{background:#0f172a}
+  .worker-row,.cmp-col{background:#0f172a}
+  .sum-row{border-color:#334155}
+  .modal{background:#1e293b}
+  .close-btn{background:#334155}
+  nav{background:#1e293b;border-color:#334155}
+  .nav-btn{color:#475569}
+  .modal-overlay{background:rgba(0,0,0,.7)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <main>
+    <!-- HOME -->
+    <div class="page active" id="page-home">
+      <div class="hero">
+        <div id="hero-logo"></div>
+        <div class="week-label">Encargado de Obra</div>
+        <h1>Informes Semanales</h1>
+        <div class="week-info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="home-week-label"></span>
+        </div>
+      </div>
+      <div class="px-4 py-5" id="home-content"></div>
+    </div>
+
+    <!-- OBRAS -->
+    <div class="page" id="page-projects">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+        <h1>Obras</h1>
+        <button class="btn btn-primary btn-sm" onclick="openProjectModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nueva Obra
+        </button>
+      </div>
+      <div class="px-4 py-5" id="projects-list"></div>
+    </div>
+
+    <!-- AJUSTES -->
+    <div class="page" id="page-settings">
+      <div class="page-header"><h1>Ajustes</h1></div>
+      <div class="px-4 py-5">
+        <div class="card" style="padding:16px">
+          <div class="sec-title">Empresa</div>
+          <div class="form-group">
+            <label class="lbl">Nombre de la empresa</label>
+            <input class="inp" id="s-company" placeholder="PROINTER Proyectos e Instalaciones Térmicas S.L."/>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="lbl">Logo de empresa</label>
+            <div id="s-logo-preview" style="margin-bottom:8px"></div>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:12px 14px;font-size:13px;color:#64748b;font-weight:600" onclick="$('logo-file-input').click()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>Subir imagen del logo (PNG, JPG)</span>
+            </label>
+          </div>
+        </div>
+        <div class="card mt-3" style="padding:16px">
+          <div class="sec-title" style="display:flex;align-items:center;gap:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Estado del servidor de correo
+          </div>
+          <div id="smtp-status" style="display:flex;align-items:center;gap:10px;padding:12px 0">
+            <span style="font-size:13px;color:#94a3b8">Comprobando…</span>
+          </div>
+        </div>
+        <div id="settings-result" style="margin-top:12px"></div>
+        <div class="flex gap-2 mt-3">
+          <button class="btn btn-secondary" style="flex:1" onclick="checkSmtpStatus()">Comprobar estado</button>
+          <button class="btn btn-primary" style="flex:1" onclick="saveSettings()">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORT FORM -->
+    <div class="page" id="page-report">
+      <div style="background:#fff;border-bottom:1px solid #f1f5f9;padding:48px 16px 4px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <button class="btn btn-secondary btn-icon" onclick="reportBack()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div style="flex:1;min-width:0">
+            <div id="rf-project-meta" style="font-size:11px;color:#64748b"></div>
+            <div id="rf-step-title" style="font-size:17px;font-weight:700;color:#0f172a"></div>
+          </div>
+          <span id="rf-step-counter" style="font-size:12px;color:#94a3b8;font-weight:600"></span>
+        </div>
+        <div class="step-bar" id="rf-step-bar"></div>
+        <div id="rf-step-subtitle" style="font-size:12px;color:#64748b;padding-bottom:6px"></div>
+      </div>
+      <div id="rf-content" class="px-4 py-4 slide-in"></div>
+      <div class="form-footer" id="rf-footer"></div>
+    </div>
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav>
+    <button class="nav-btn active" id="nav-home" onclick="goPage('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Inicio
+    </button>
+    <button class="nav-btn" id="nav-projects" onclick="goPage('projects')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Obras
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="goPage('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Ajustes
+    </button>
+  </nav>
+
+  <!-- PROJECT MODAL -->
+  <div class="modal-overlay" id="project-modal" style="display:none" onclick="closeProjectModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="pm-title">Nueva Obra</h2>
+        <button class="close-btn" onclick="closeProjectModal()">✕</button>
+      </div>
+      <div class="form-group"><label class="lbl">Nombre de la Obra *</label><input class="inp" id="pm-name" placeholder="Ej: Centro Comercial Norte"/></div>
+      <div class="form-group"><label class="lbl">Código de Obra *</label><input class="inp" id="pm-code" placeholder="Ej: CLM-2024-001" oninput="this.value=this.value.toUpperCase()"/></div>
+      <div class="form-group"><label class="lbl">Nombre Jefe de Obra</label><input class="inp" id="pm-manager" placeholder="Nombre completo"/></div>
+      <div class="form-group"><label class="lbl">Email Jefe de Obra *</label><input class="inp" id="pm-email" type="email" placeholder="jefe@empresa.com"/></div>
+      <button class="btn btn-primary btn-full mt-3" onclick="saveProject()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg>
+        Guardar Obra
+      </button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="photo-input" accept="image/*" multiple capture="environment" style="display:none" onchange="handlePhotoInput(event)"/>
+<input type="file" id="logo-file-input" accept="image/*" style="display:none" onchange="handleLogoUpload(event)"/>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────
+const DB = {
+  get: (k, d=[]) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v))
+}
+
+let projects  = DB.get('obra_projects', [])
+let reports   = DB.get('obra_reports',  [])
+let settings  = DB.get('obra_settings', { companyName:'PROINTER Proyectos e Instalaciones Térmicas S.L.', logoBase64:'' })
+if(!settings.logoBase64) settings.logoBase64=''
+
+function saveProjects(){ DB.set('obra_projects', projects) }
+function saveReports(){  DB.set('obra_reports',  reports)  }
+function saveSettings(){
+  settings.companyName = $('#s-company').value
+  DB.set('obra_settings', settings)
+  showResult('settings-result','Ajustes guardados correctamente',true)
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id)
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2) }
+function getWeek(d=new Date()){
+  const e=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()))
+  const n=e.getUTCDay()||7; e.setUTCDate(e.getUTCDate()+4-n)
+  const y=new Date(Date.UTC(e.getUTCFullYear(),0,1))
+  return[Math.ceil((((e-y)/86400000)+1)/7),e.getUTCFullYear()]
+}
+function weekRange(w,y){
+  const jan1=new Date(y,0,1),off=(w-1)*7
+  const s=new Date(jan1); s.setDate(jan1.getDate()+off-jan1.getDay()+1)
+  if(jan1.getDay()===0) s.setDate(s.getDate()-7)
+  const e=new Date(s); e.setDate(s.getDate()+6)
+  const fmt=d=>d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'})
+  return `${fmt(s)} – ${fmt(e)}`
+}
+function formatDate(d){ return new Date(d).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}) }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function showResult(elId, msg, ok){
+  const el=$(elId); if(!el) return
+  el.innerHTML=`<div class="alert ${ok?'alert-success':'alert-error'}">${ok?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'}${esc(msg)}</div>`
+  setTimeout(()=>{ if(ok) el.innerHTML='' },4000)
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────────────
+let currentPage = 'home'
+function goPage(p){
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'))
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'))
+  $(`page-${p}`).classList.add('active')
+  const nb=$(`nav-${p}`); if(nb) nb.classList.add('active')
+  currentPage=p
+  if(p==='home')     renderHome()
+  if(p==='projects') renderProjects()
+  if(p==='settings') loadSettingsForm()
+}
+
+// ─── HOME ─────────────────────────────────────────────────────────
+function renderHome(){
+  const [cw,cy]=getWeek()
+  $('home-week-label').textContent=`Semana ${cw} · ${weekRange(cw,cy)}`
+  // Hero branding
+  const heroLogo=$('hero-logo')
+  if(heroLogo){
+    if(settings.logoBase64){
+      heroLogo.innerHTML=`<div style="display:inline-flex;align-items:center;gap:9px;background:rgba(255,255,255,.14);border-radius:10px;padding:5px 11px 5px 7px;margin-bottom:12px">
+        <div style="background:#fff;border-radius:6px;padding:3px 5px;display:flex;align-items:center;justify-content:center;min-width:38px;height:26px">
+          <img src="${settings.logoBase64}" style="max-width:42px;max-height:22px;object-fit:contain;display:block"/>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.92);letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${esc(settings.companyName||'')}</span>
+      </div>`
+    } else {
+      heroLogo.innerHTML=`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#bfdbfe;margin-bottom:4px">${esc(settings.companyName||'PROINTER · Instalaciones Térmicas')}</div>`
+    }
+  }
+  const el=$('home-content')
+  if(projects.length===0){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🏗️</div><h2>Sin obras configuradas</h2><p>Añade tu primera obra para empezar a generar informes</p><button class="btn btn-primary" onclick="goPage('projects')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Añadir Obra</button></div>`
+    return
+  }
+  el.innerHTML='<div class="sec-title">Mis Obras</div>'+projects.map(p=>{
+    const allReps=getProjectReports(p.id)
+    const sentThisWeek=allReps.find(r=>r.weekNumber===cw&&r.year===cy&&r.status==='sent')
+    const draftThisWeek=allReps.find(r=>r.weekNumber===cw&&r.year===cy&&r.status==='draft')
+    const hasThisWeek=sentThisWeek||draftThisWeek
+    const total=allReps.length
+    return `<div class="card mb-3">
+      <div style="padding:16px">
+        <div style="display:flex;align-items:start;justify-content:space-between;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+              <span class="tag tag-blue">${esc(p.code)}</span>
+              ${sentThisWeek?`<span class="tag tag-green">✓ Sem. ${cw} enviado</span>`:draftThisWeek?`<span class="tag tag-amber">Borrador sem. ${cw}</span>`:`<span class="tag tag-amber">⚠ Pendiente sem. ${cw}</span>`}
+            </div>
+            <div style="font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">${esc(p.managerEmail)}</div>
+          </div>
+        </div>
+        <button class="btn ${sentThisWeek?'btn-secondary':'btn-primary'} btn-full mt-3" onclick="startReport('${p.id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          ${sentThisWeek?`Nuevo Informe Sem. ${cw}`:draftThisWeek?`Continuar Borrador Sem. ${cw}`:`Informe Semana ${cw}`}
+        </button>
+      </div>
+      ${total>0?`
+      <div style="border-top:1px solid #f1f5f9">
+        <button id="rtoggle-${p.id}" onclick="toggleReports('${p.id}')" style="width:100%;padding:10px 16px;background:none;border:none;cursor:pointer;font-size:12px;color:#64748b;font-weight:600;text-align:left;display:flex;align-items:center;justify-content:space-between">
+          <span>📋 Ver historial (${total})</span>
+          <span style="font-size:16px;line-height:1">›</span>
+        </button>
+        <div id="rlist-${p.id}" style="display:none;padding:0 16px 12px">
+          ${renderReportList(p.id)}
+        </div>
+      </div>`:''}
+    </div>`
+  }).join('')
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────
+let editProjectId=null
+function openProjectModal(id=null){
+  editProjectId=id
+  const p=id?projects.find(x=>x.id===id):null
+  $('pm-title').textContent=p?'Editar Obra':'Nueva Obra'
+  $('pm-name').value=p?.name||''
+  $('pm-code').value=p?.code||''
+  $('pm-manager').value=p?.managerName||''
+  $('pm-email').value=p?.managerEmail||''
+  $('project-modal').style.display='flex'
+}
+function closeProjectModal(e){
+  if(!e||e.target===$('project-modal')||e.type==='click'&&!e.target.closest('.modal')||e.currentTarget===$('project-modal')&&e.target===$('project-modal')){
+    $('project-modal').style.display='none'
+  }
+}
+function saveProject(){
+  const name=$('pm-name').value.trim(),code=$('pm-code').value.trim(),email=$('pm-email').value.trim()
+  if(!name||!code||!email){ alert('Nombre, código y email son obligatorios'); return }
+  if(editProjectId){
+    projects=projects.map(p=>p.id===editProjectId?{...p,name,code,managerName:$('pm-manager').value.trim(),managerEmail:email}:p)
+  } else {
+    projects.push({id:uid(),name,code,managerName:$('pm-manager').value.trim(),managerEmail:email,createdAt:new Date().toISOString()})
+  }
+  saveProjects(); $('project-modal').style.display='none'; renderProjects()
+}
+function deleteProject(id){
+  const p=projects.find(x=>x.id===id)
+  if(!confirm(`¿Eliminar la obra "${p?.name}"?`)) return
+  projects=projects.filter(x=>x.id!==id); saveProjects(); renderProjects()
+}
+function renderProjects(){
+  const el=$('projects-list')
+  if(!projects.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">📁</div><h2>Sin obras</h2><p>Añade tu primera obra</p></div>'; return
+  }
+  el.innerHTML=projects.map(p=>`
+    <div class="card mb-3">
+      <div style="padding:16px;display:flex;align-items:start;gap:12px">
+        <div style="flex:1;min-width:0">
+          <span class="tag tag-blue">${esc(p.code)}</span>
+          <div style="font-weight:700;margin-top:8px;color:#0f172a">${esc(p.name)}</div>
+          ${p.managerName?`<div style="font-size:13px;color:#374151;margin-top:2px">${esc(p.managerName)}</div>`:''}
+          <div style="font-size:12px;color:#64748b;margin-top:2px">${esc(p.managerEmail)}</div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:2px">
+          <button class="btn btn-secondary btn-icon btn-sm" onclick="openProjectModal('${p.id}')">✏️</button>
+          <button class="btn btn-danger btn-icon btn-sm" onclick="deleteProject('${p.id}')">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('')
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────
+function loadSettingsForm(){
+  $('s-company').value=settings.companyName||'PROINTER Proyectos e Instalaciones Térmicas S.L.'
+  renderLogoPreview()
+  checkSmtpStatus()
+}
+function togglePass(){
+  const i=$('s-pass'); i.type=i.type==='password'?'text':'password'
+}
+async function checkSmtpStatus(){
+  const el=$('smtp-status'); if(!el) return
+  el.innerHTML='<span style="font-size:13px;color:#94a3b8">Comprobando…</span>'
+  try{
+    const r=await fetch('/api/health'); const d=await r.json()
+    if(d.smtp_configured){
+      el.innerHTML='<span style="width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0"></span><span style="font-size:13px;color:#15803d;font-weight:600">Servidor activo · Correo configurado</span>'
+    } else {
+      el.innerHTML='<span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0"></span><span style="font-size:13px;color:#b45309;font-weight:600">Servidor activo · Correo no configurado</span>'
+    }
+  } catch{
+    el.innerHTML='<span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0"></span><span style="font-size:13px;color:#dc2626;font-weight:600">Sin conexión con el servidor</span>'
+  }
+}
+
+// ─── LOGO ─────────────────────────────────────────────────────────
+function handleLogoUpload(e){
+  const f=e.target.files[0]; if(!f) return
+  const reader=new FileReader()
+  reader.onload=ev=>{
+    settings.logoBase64=ev.target.result
+    DB.set('obra_settings',settings)
+    renderLogoPreview()
+    renderHome()
+  }
+  reader.readAsDataURL(f)
+  e.target.value=''
+}
+function removeLogo(){
+  settings.logoBase64=''
+  DB.set('obra_settings',settings)
+  renderLogoPreview()
+  renderHome()
+}
+function renderLogoPreview(){
+  const el=$('s-logo-preview'); if(!el) return
+  if(settings.logoBase64){
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin-bottom:4px">
+      <div style="width:54px;height:32px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:6px;border:1px solid #e2e8f0;overflow:hidden;flex-shrink:0">
+        <img src="${settings.logoBase64}" style="max-width:50px;max-height:28px;object-fit:contain"/>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:#0f172a">Logo cargado</div>
+        <div style="font-size:11px;color:#64748b">Se mostrará en la cabecera y en el PDF</div>
+      </div>
+      <button onclick="removeLogo()" style="background:#fef2f2;border:none;cursor:pointer;color:#dc2626;font-size:12px;font-weight:700;padding:5px 9px;border-radius:8px">Quitar</button>
+    </div>`
+  } else {
+    el.innerHTML=''
+  }
+}
+
+// ─── REPORT FORM ──────────────────────────────────────────────────
+const TOTAL_STEPS=5
+let rf={projectId:'',weekNumber:0,year:0,worksCompleted:'',workItems:[''],workers:[],photos:[],materialsNeeded:'',materialItems:[''],nextWeekWorks:'',nextWorkItems:[''],prevPlan:'',observations:''}
+let rfStep=0
+let rfPdfBlob=null
+let rfPdfGenerated=false
+let editingReportId=null
+
+function getProjectReports(pid){ return reports.filter(r=>r.projectId===pid).sort((a,b)=>b.year!==a.year?b.year-a.year:b.weekNumber-a.weekNumber) }
+function getLastReport(pid){ return getProjectReports(pid).find(r=>r.status==='sent')||null }
+
+function autoSaveDraft(){
+  if(!editingReportId) return
+  reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:r.status==='sent'?'sent':'draft',updatedAt:new Date().toISOString()}:r)
+  saveReports()
+}
+
+function startReport(projectId, reportId=null){
+  const [cw,cy]=getWeek()
+  let existing=null
+  if(reportId){
+    existing=reports.find(r=>r.id===reportId)
+  } else {
+    // Resume draft for current week if exists
+    existing=reports.find(r=>r.projectId===projectId&&r.weekNumber===cw&&r.year===cy&&r.status==='draft')
+  }
+  if(existing){
+    const wc=existing.worksCompleted||'',mn=existing.materialsNeeded||'',nw=existing.nextWeekWorks||''
+    rf={projectId:existing.projectId,weekNumber:existing.weekNumber,year:existing.year,
+      worksCompleted:wc,
+      workItems:existing.workItems||(wc?wc.split('\n').filter(x=>x.trim()):[]),
+      workers:existing.workers||[],photos:existing.photos||[],
+      materialsNeeded:mn,
+      materialItems:existing.materialItems||(mn?mn.split('\n').filter(x=>x.trim()):[]),
+      nextWeekWorks:nw,
+      nextWorkItems:existing.nextWorkItems||(nw?nw.split('\n').filter(x=>x.trim()):[]),
+      prevPlan:existing.prevPlan||'',observations:existing.observations||''}
+    editingReportId=existing.id
+  } else {
+    const lr=getLastReport(projectId)
+    const newId=uid()
+    const prevNW=lr?.nextWeekWorks||''
+    rf={projectId,weekNumber:cw,year:cy,worksCompleted:'',workItems:[''],workers:[],photos:[],
+      materialsNeeded:'',materialItems:[''],nextWeekWorks:'',nextWorkItems:[''],
+      prevPlan:prevNW}
+    reports.push({id:newId,...rf,status:'draft',createdAt:new Date().toISOString()})
+    saveReports()
+    editingReportId=newId
+  }
+  rfStep=0; rfPdfBlob=null; rfPdfGenerated=false
+  document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'))
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'))
+  $('page-report').classList.add('active')
+  renderStep()
+}
+
+function editReport(id){
+  const r=reports.find(x=>x.id===id)
+  if(!r||r.status==='sent') return
+  startReport(r.projectId,id)
+}
+
+function viewReport(id){
+  const r=reports.find(x=>x.id===id)
+  const p=projects.find(x=>x.id===r?.projectId)
+  if(!r||!p) return
+  const m=document.createElement('div'); m.className='modal-overlay'; m.style.display='flex'
+  m.innerHTML=`<div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-header">
+      <h2>Semana ${r.weekNumber}/${r.year}</h2>
+      <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+    </div>
+    <div>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <span class="tag tag-blue">${esc(p.code)}</span>
+        <span class="tag ${r.status==='sent'?'tag-green':'tag-amber'}">${r.status==='sent'?'✓ Enviado':'Borrador'}</span>
+      </div>
+      <div class="sum-row"><span class="sum-key">Obra</span><span class="sum-val">${esc(p.name)}</span></div>
+      <div class="sum-row"><span class="sum-key">Semana</span><span class="sum-val">${weekRange(r.weekNumber,r.year)}</span></div>
+      <div class="sum-row"><span class="sum-key">Operarios</span><span class="sum-val">${totalWorkers(r.workers)} (${r.workers?.length||0} empresa${(r.workers?.length||0)!==1?'s':''})</span></div>
+      <div class="sum-row"><span class="sum-key">Fotos</span><span class="sum-val">${r.photos?.length||0}</span></div>
+      ${r.sentAt?`<div class="sum-row"><span class="sum-key">Enviado</span><span class="sum-val">${formatDate(r.sentAt)}</span></div>`:''}
+      ${r.prevPlan?`<div style="margin-top:14px"><div class="sec-title">Previsto semana anterior</div><p style="font-size:13px;color:#78350f;background:#fffbeb;border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.5">${esc(r.prevPlan)}</p></div>`:''}
+      <div style="margin-top:14px"><div class="sec-title">Trabajos realizados</div><p style="font-size:13px;color:#374151;background:#f8fafc;border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.5">${esc(r.worksCompleted||'—')}</p></div>
+      ${r.observations?`<div style="margin-top:14px"><div class="sec-title">Observaciones</div><p style="font-size:13px;color:#374151;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.5">${esc(r.observations)}</p></div>`:''}
+      ${(()=>{
+        if(!r.workers?.length) return ''
+        const rd=getCompanyRatingData(p.id)
+        const workersHtml=r.workers.map(w=>{
+          const rv=parseFloat(w.rating); const hasR=!isNaN(rv)
+          const cname=(w.company||w.name||'').trim()
+          const cd=rd[cname]
+          const avgHtml=cd?`<div style="font-size:10px;color:#94a3b8;margin-top:1px">Media obra: <span style="font-weight:700;color:${ratingColor(cd.sum/cd.n)}">${(cd.sum/cd.n).toFixed(1)}</span></div>`:''
+          return `<div class="worker-row"><div class="worker-avatar" style="background:#dbeafe;font-size:16px">🏢</div><div class="worker-info"><div class="worker-name">${esc(cname)}</div><div class="worker-role">${w.count||w.role||1} operario${(w.count||1)!==1?'s':''}${hasR?` · Nota sem.: <strong>${rv}/10</strong>`:''}</div>${avgHtml}</div>${hasR?`<span style="background:${ratingBg(rv)};color:${ratingColor(rv)};font-weight:800;font-size:13px;padding:3px 9px;border-radius:8px;flex-shrink:0">${rv}/10</span>`:''}</div>`
+        }).join('')
+        // Medias globales
+        const ratedNames=[...new Set(r.workers.map(w=>(w.company||w.name||'').trim()).filter(x=>x&&rd[x]))]
+        const avgBlock=ratedNames.length?`<div style="background:#f8fafc;border-radius:10px;padding:10px 12px;margin-top:10px">
+          <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Media acumulada por obra</div>
+          ${ratedNames.map(c=>{const d=rd[c];const avg=d.sum/d.n;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #e2e8f0"><span style="font-size:12px;color:#374151">${esc(c)}</span><span style="display:flex;align-items:center;gap:6px"><span style="background:${ratingBg(avg)};color:${ratingColor(avg)};font-weight:800;font-size:13px;padding:2px 9px;border-radius:7px">${avg.toFixed(1)}</span><span style="font-size:11px;color:#94a3b8">${d.n} sem.</span></span></div>`}).join('')}
+        </div>`:''
+        return `<div style="margin-top:14px"><div class="sec-title">Subcontratas · ${totalWorkers(r.workers)} operarios total</div>${workersHtml}${avgBlock}</div>`
+      })()}
+      ${r.photos?.length?`<div style="margin-top:14px"><div class="sec-title">Fotografías (${r.photos.length})</div><div class="photo-grid">${r.photos.map(ph=>`<div class="photo-cell"><img src="${ph.dataUrl}" alt="${esc(ph.caption||'')}"/></div>`).join('')}</div></div>`:''}
+      <div style="margin-top:14px"><div class="sec-title">Planificación semana siguiente</div>
+        <p style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Materiales</p>
+        <p style="font-size:13px;color:#374151;background:#eff6ff;border-radius:10px;padding:10px 12px;white-space:pre-wrap;margin-bottom:10px">${esc(r.materialsNeeded||'—')}</p>
+        <p style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Trabajos previstos</p>
+        <p style="font-size:13px;color:#374151;background:#eff6ff;border-radius:10px;padding:10px 12px;white-space:pre-wrap">${esc(r.nextWeekWorks||'—')}</p>
+      </div>
+    </div>
+  </div>`
+  document.body.appendChild(m); m.addEventListener('click',e=>{ if(e.target===m) m.remove() })
+}
+
+function deleteReport(id){
+  const r=reports.find(x=>x.id===id)
+  if(!r) return
+  if(r.status==='sent'){ alert('No se puede eliminar un informe ya enviado.'); return }
+  if(!confirm(`¿Eliminar este borrador (Semana ${r.weekNumber}/${r.year})?`)) return
+  reports=reports.filter(x=>x.id!==id); saveReports(); renderHome()
+}
+
+function toggleReports(pid){
+  const el=$(`rlist-${pid}`)
+  if(!el) return
+  const isOpen=el.style.display!=='none'
+  el.style.display=isOpen?'none':'block'
+  const btn=$(`rtoggle-${pid}`)
+  if(btn) btn.textContent=isOpen?`Ver historial (${getProjectReports(pid).length})`:'Ocultar historial'
+}
+
+function renderReportList(pid){
+  const reps=getProjectReports(pid)
+  if(!reps.length) return '<p style="font-size:12px;color:#94a3b8;padding:8px 0;text-align:center">Sin informes guardados</p>'
+  return reps.map(r=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f1f5f9">
+      <div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:13px;font-weight:700">Sem. ${r.weekNumber}/${r.year}</span>
+          <span class="tag ${r.status==='sent'?'tag-green':'tag-amber'}" style="font-size:10px;padding:2px 7px">${r.status==='sent'?'✓ Enviado':'Borrador'}</span>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px">${weekRange(r.weekNumber,r.year)}</div>
+      </div>
+      <div style="display:flex;gap:5px">
+        ${r.status!=='sent'?`<button class="btn btn-secondary btn-sm" style="padding:6px 10px;font-size:12px" onclick="editReport('${r.id}')">✏️ Editar</button><button class="btn btn-danger btn-sm" style="padding:6px 8px;font-size:12px" onclick="deleteReport('${r.id}')">🗑️</button>`:`<button class="btn btn-secondary btn-sm" style="padding:6px 10px;font-size:12px" onclick="viewReport('${r.id}')">👁 Ver</button>`}
+      </div>
+    </div>`).join('')
+}
+function reportBack(){
+  if(rfStep===0){ goPage('home'); return }
+  rfStep--; renderStep()
+}
+function reportNext(){
+  if(rfStep===0&&!rf.workItems.filter(x=>x.trim()).length){ alert('Describe al menos un trabajo realizado esta semana'); return }
+  if(rfStep<TOTAL_STEPS-1){ rfStep++; renderStep() }
+}
+
+function renderStepBar(){
+  $('rf-step-bar').innerHTML=Array.from({length:TOTAL_STEPS}).map((_,i)=>{
+    const cls=i===rfStep?'active':i<rfStep?'done':'pending'
+    return `<div class="step-dot ${cls}"></div>`
+  }).join('')
+}
+
+const STEP_TITLES=['Trabajos Realizados','Operarios Asignados','Fotografías','Próxima Semana','Generar y Enviar']
+const STEP_ICONS=['📋','👷','📸','📅','📤']
+
+function renderStep(){
+  autoSaveDraft()
+  const p=projects.find(x=>x.id===rf.projectId)
+  $('rf-project-meta').textContent=`${p?.code} · ${p?.name}`
+  $('rf-step-title').textContent=STEP_TITLES[rfStep]
+  $('rf-step-counter').textContent=`${rfStep+1}/${TOTAL_STEPS}`
+  $('rf-step-subtitle').textContent=rfStep===0?`Semana ${rf.weekNumber}/${rf.year} · ${weekRange(rf.weekNumber,rf.year)}`:rfStep===4?`Para: ${p?.managerEmail||'—'}`:`Paso ${rfStep+1} de ${TOTAL_STEPS}`
+  renderStepBar()
+  $('rf-content').className='px-4 py-4 slide-in'
+  void $('rf-content').offsetWidth // reflow for animation
+  switch(rfStep){
+    case 0: renderStep0(); break
+    case 1: renderStep1(); break
+    case 2: renderStep2(); break
+    case 3: renderStep3(); break
+    case 4: renderStep4(); break
+  }
+  renderFooter()
+}
+
+function renderStep0(){
+  const prev=rf.prevPlan?`<div class="prev-box"><div class="prev-label">⚠ Previsto semana anterior</div><p>${esc(rf.prevPlan)}</p></div>`:`<div class="prev-box" style="background:#f8fafc;border-color:#e2e8f0"><p style="color:#94a3b8;font-style:italic;font-size:13px">Sin planificación registrada de la semana anterior</p></div>`
+  // Ensure workItems is initialized
+  if(!rf.workItems||rf.workItems.length===0){
+    rf.workItems=rf.worksCompleted?rf.worksCompleted.split('\n').filter(x=>x.trim()):['']
+  }
+  if(rf.workItems[rf.workItems.length-1].trim()!=='') rf.workItems.push('')
+  $('rf-content').innerHTML=prev+`
+    <div class="form-group">
+      <label class="lbl">Trabajos realizados esta semana *</label>
+      <div id="work-items-list"></div>
+    </div>
+    <div class="form-group">
+      <label class="lbl">Observaciones del Encargado</label>
+      <textarea class="inp" id="rf-obs" placeholder="Incidencias, retrasos, condiciones de obra, notas de seguridad…" oninput="rf.observations=this.value" style="min-height:80px">${esc(rf.observations)}</textarea>
+    </div>`
+  renderWorkItems()
+}
+
+// ── Lista numerada genérica ──────────────────────────────────────
+// listKey   = clave en rf[] del array de items  (ej: 'workItems')
+// syncKey   = clave en rf[] del string resultado (ej: 'worksCompleted')
+// cid       = id del contenedor HTML
+// ph0/phN   = placeholder primer item / resto
+function renderItemList(listKey,syncKey,cid,ph0,phN){
+  const el=$(cid); if(!el) return
+  const items=rf[listKey]
+  el.innerHTML=items.map((item,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:13px;font-weight:700;color:#2563eb;min-width:22px;text-align:right;flex-shrink:0">${i+1}.</span>
+      <input class="inp" id="${cid}-${i}" style="flex:1;padding:10px 12px;font-size:14px"
+        placeholder="${i===0?ph0:phN}"
+        value="${esc(item)}"
+        oninput="updateItemInList('${listKey}','${syncKey}','${cid}','${ph0}','${phN}',${i},this.value)"
+        onkeydown="itemListKeyDown(event,'${listKey}','${syncKey}','${cid}','${ph0}','${phN}',${i})"/>
+      ${items.length>1?`<button onclick="removeItemFromList('${listKey}','${syncKey}','${cid}','${ph0}','${phN}',${i})" style="background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:20px;line-height:1;flex-shrink:0;padding:0 2px">✕</button>`:''}
+    </div>`).join('')
+}
+function updateItemInList(listKey,syncKey,cid,ph0,phN,i,val){
+  rf[listKey][i]=val
+  rf[syncKey]=rf[listKey].filter(x=>x.trim()).join('\n')
+  if(i===rf[listKey].length-1&&val.trim()!==''){
+    rf[listKey].push('')
+    renderItemList(listKey,syncKey,cid,ph0,phN)
+    setTimeout(()=>{ const cur=$(cid+'-'+i); if(cur){ cur.focus(); const l=cur.value.length; cur.setSelectionRange(l,l) } },10)
+  }
+}
+function itemListKeyDown(e,listKey,syncKey,cid,ph0,phN,i){
+  const items=rf[listKey]
+  if(e.key==='Enter'){
+    e.preventDefault()
+    if(i===items.length-1){
+      if(items[i].trim()!==''){
+        items.push(''); renderItemList(listKey,syncKey,cid,ph0,phN)
+        setTimeout(()=>{ const n=$(cid+'-'+(i+1)); if(n) n.focus() },30)
+      }
+    } else { const n=$(cid+'-'+(i+1)); if(n) n.focus() }
+  } else if(e.key==='Backspace'&&items[i]===''&&items.length>1){
+    e.preventDefault()
+    removeItemFromList(listKey,syncKey,cid,ph0,phN,i)
+    setTimeout(()=>{ const p=$(cid+'-'+Math.max(0,i-1)); if(p){ p.focus(); const l=p.value.length; p.setSelectionRange(l,l) } },30)
+  }
+}
+function removeItemFromList(listKey,syncKey,cid,ph0,phN,i){
+  rf[listKey].splice(i,1)
+  if(rf[listKey].length===0) rf[listKey]=['']
+  rf[syncKey]=rf[listKey].filter(x=>x.trim()).join('\n')
+  renderItemList(listKey,syncKey,cid,ph0,phN)
+}
+// Atajos para step0 (compatibilidad)
+function renderWorkItems(){ renderItemList('workItems','worksCompleted','work-items-list','Primer trabajo realizado…','Otro trabajo…') }
+
+function renderStep1(){
+  $('rf-content').innerHTML=`
+    <div class="flex gap-2 mb-3">
+      <input class="inp" id="w-company" placeholder="Empresa subcontratista" style="flex:1" onkeydown="if(event.key==='Enter')addWorker()"/>
+      <input class="inp" id="w-count" placeholder="Nº ops." type="number" min="1" style="width:80px" onkeydown="if(event.key==='Enter')addWorker()"/>
+      <button class="btn btn-primary btn-icon" onclick="addWorker()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+    <div id="workers-list"></div>`
+  renderWorkers()
+}
+function addWorker(){
+  const c=$('w-company').value.trim(), n=parseInt($('w-count').value)||1
+  if(!c) return
+  rf.workers.push({id:uid(),company:c,count:n})
+  $('w-company').value=''; $('w-count').value=''; renderWorkers()
+}
+function totalWorkers(ws){ return (ws||[]).reduce((s,w)=>s+(parseInt(w.count)||1),0) }
+// Migrate old format {name,role} → new format {company,count}
+function migrateWorkers(ws){ return (ws||[]).map(w=>w.company!==undefined?w:{...w,company:w.name||'',count:parseInt(w.role)||1}) }
+function removeWorker(id){ rf.workers=rf.workers.filter(w=>w.id!==id); renderWorkers() }
+function setWorkerRating(id,val){
+  const v=val===''?null:parseFloat(val)
+  rf.workers=rf.workers.map(w=>w.id===id?{...w,rating:(v!==null&&!isNaN(v))?Math.min(10,Math.max(0,v)):null}:w)
+}
+function ratingColor(v){ return v>=7?'#15803d':v>=5?'#b45309':'#dc2626' }
+function ratingBg(v){   return v>=7?'#f0fdf4':v>=5?'#fffbeb':'#fef2f2' }
+// Devuelve {companyName: {sum, n}} con las medias de toda la obra
+function getCompanyRatingData(projectId){
+  const data={}
+  for(const rep of getProjectReports(projectId)){
+    const ws=migrateWorkers(rep.workers||[])
+    for(const w of ws){
+      const name=(w.company||w.name||'').trim(); if(!name) continue
+      const r=parseFloat(w.rating); if(isNaN(r)) continue
+      if(!data[name]) data[name]={sum:0,n:0}
+      data[name].sum+=r; data[name].n++
+    }
+  }
+  return data
+}
+function renderWorkers(){
+  const el=$('workers-list'); if(!el) return
+  rf.workers=migrateWorkers(rf.workers)
+  const tot=totalWorkers(rf.workers)
+  el.innerHTML=rf.workers.length===0
+    ?`<p class="text-center text-muted text-sm" style="padding:20px 0">Sin subcontratas añadidas</p>`
+    :(rf.workers.map(w=>{
+      const rv=(w.rating!==null&&w.rating!==undefined&&w.rating!=='')?w.rating:''
+      const rc=rv!==''?ratingColor(parseFloat(rv)):''
+      return `<div style="background:#f8fafc;border-radius:12px;padding:10px 12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="worker-avatar" style="background:#dbeafe;font-size:14px;flex-shrink:0">🏢</div>
+          <div class="worker-info">
+            <div class="worker-name">${esc(w.company)}</div>
+            <div class="worker-role">${w.count} operario${w.count!==1?'s':''}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;gap:2px">
+            <span style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em">Nota</span>
+            <div style="display:flex;align-items:center;gap:2px">
+              <input type="number" min="0" max="10" step="0.5"
+                style="width:46px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-weight:700;color:${rc||'#0f172a'};text-align:center;padding:5px 2px;outline:none;-moz-appearance:textfield"
+                placeholder="—" value="${rv}"
+                oninput="setWorkerRating('${w.id}',this.value)"
+                onfocus="this.style.borderColor='#2563eb'"
+                onblur="this.style.borderColor='#e2e8f0'"/>
+              <span style="font-size:10px;color:#94a3b8">/10</span>
+            </div>
+          </div>
+          <button style="background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:18px;flex-shrink:0" onclick="removeWorker('${w.id}')">✕</button>
+        </div>
+      </div>`
+    }).join('')
+    +`<div style="text-align:right;font-size:12px;font-weight:700;color:#2563eb;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9">Total: ${tot} operario${tot!==1?'s':''}</div>`)
+}
+
+function renderStep2(){
+  $('rf-content').innerHTML=`<div class="photo-grid" id="photo-grid"></div><div id="photo-captions"></div>`
+  renderPhotos()
+}
+function renderPhotos(){
+  const g=$('photo-grid'),c=$('photo-captions'); if(!g) return
+  g.innerHTML=rf.photos.map((p,i)=>`<div class="photo-cell"><img src="${p.dataUrl}" alt=""/><button class="photo-del" onclick="removePhoto('${p.id}')">✕</button></div>`).join('')+
+    `<button class="photo-add" onclick="$('photo-input').click()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Añadir</button>`
+  if(c) c.innerHTML=rf.photos.length?'<div style="margin-top:10px;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px">Descripciones (opcional)</div>'+rf.photos.map((p,i)=>`<div class="flex gap-2 mb-2"><img src="${p.dataUrl}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;flex-shrink:0"/><input class="inp" style="font-size:13px;padding:8px 12px" placeholder="Descripción foto ${i+1}…" value="${esc(p.caption||'')}" oninput="setCaption('${p.id}',this.value)"/></div>`).join(''):''
+}
+function handlePhotoInput(e){
+  Array.from(e.target.files).forEach(f=>{
+    const r=new FileReader(); r.onload=ev=>{ rf.photos.push({id:uid(),dataUrl:ev.target.result,caption:''}); renderPhotos() }; r.readAsDataURL(f)
+  }); e.target.value=''
+}
+function removePhoto(id){ rf.photos=rf.photos.filter(p=>p.id!==id); renderPhotos() }
+function setCaption(id,v){ rf.photos=rf.photos.map(p=>p.id===id?{...p,caption:v}:p) }
+
+function renderStep3(){
+  // Inicializar arrays si vienen de datos antiguos
+  if(!rf.materialItems||rf.materialItems.length===0)
+    rf.materialItems=rf.materialsNeeded?rf.materialsNeeded.split('\n').filter(x=>x.trim()):['']
+  if(rf.materialItems[rf.materialItems.length-1].trim()!=='') rf.materialItems.push('')
+  if(!rf.nextWorkItems||rf.nextWorkItems.length===0)
+    rf.nextWorkItems=rf.nextWeekWorks?rf.nextWeekWorks.split('\n').filter(x=>x.trim()):['']
+  if(rf.nextWorkItems[rf.nextWorkItems.length-1].trim()!=='') rf.nextWorkItems.push('')
+  $('rf-content').innerHTML=`
+    <div class="form-group">
+      <label class="lbl">Materiales necesarios</label>
+      <div id="material-items-list"></div>
+    </div>
+    <div class="form-group" style="margin-top:4px">
+      <label class="lbl">Trabajos previstos</label>
+      <div id="next-work-items-list"></div>
+    </div>`
+  renderItemList('materialItems','materialsNeeded','material-items-list','Primer material necesario…','Otro material…')
+  renderItemList('nextWorkItems','nextWeekWorks','next-work-items-list','Primer trabajo previsto…','Otro trabajo…')
+}
+
+function renderStep4(){
+  const p=projects.find(x=>x.id===rf.projectId)
+  const existing=reports.find(r=>r.id===editingReportId)
+  const alreadySent=existing?.status==='sent'
+  $('rf-content').innerHTML=`
+    <div class="card" style="padding:16px;margin-bottom:14px">
+      <div class="sec-title">Resumen del informe</div>
+      <div class="sum-row"><span class="sum-key">Obra</span><span class="sum-val">${esc(p?.code)} · ${esc(p?.name)}</span></div>
+      <div class="sum-row"><span class="sum-key">Semana</span><span class="sum-val">${rf.weekNumber}/${rf.year} · ${weekRange(rf.weekNumber,rf.year)}</span></div>
+      <div class="sum-row"><span class="sum-key">Subcontratas</span><span class="sum-val">${rf.workers.length} empresa${rf.workers.length!==1?'s':''} · ${totalWorkers(rf.workers)} operario${totalWorkers(rf.workers)!==1?'s':''}</span></div>
+      <div class="sum-row"><span class="sum-key">Fotografías</span><span class="sum-val">${rf.photos.length} foto(s)</span></div>
+      <div class="sum-row"><span class="sum-key">Estado</span><span class="sum-val"><span class="tag ${alreadySent?'tag-green':'tag-amber'}">${alreadySent?'✓ Enviado':'Borrador'}</span></span></div>
+      <div class="sum-row"><span class="sum-key">Destinatario</span><span class="sum-val">${esc(p?.managerEmail||'No configurado')}</span></div>
+    </div>
+    <div id="step4-result"></div>
+    ${alreadySent?`<div class="alert alert-success" style="margin-bottom:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>Este informe ya fue enviado el ${formatDate(existing.sentAt)}. Puedes generar el PDF de nuevo o enviar una copia.</div>`:''}
+    <button class="btn btn-secondary btn-full mb-2" id="btn-pdf" onclick="handleGeneratePDF()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      ${rfPdfGenerated?'PDF generado ✓ (regenerar)':'Generar PDF'}
+    </button>
+    <button class="btn btn-primary btn-full" id="btn-send" onclick="handleSendEmail()" ${(!rfPdfGenerated||!p?.managerEmail)?'disabled':''}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      ${alreadySent?'Reenviar Informe':'Enviar Informe por Email'}
+    </button>
+    ${!p?.managerEmail?'<p style="font-size:11px;color:#b45309;text-align:center;margin-top:8px">Configura el email del Jefe de Obra en la sección Obras</p>':''}
+    ${(()=>{
+      const rd=getCompanyRatingData(rf.projectId)
+      // TODAS las subcontratas que han aparecido en cualquier semana de esta obra
+      const allNames=new Set()
+      getProjectReports(rf.projectId).forEach(rep=>migrateWorkers(rep.workers||[]).forEach(w=>{ const n=(w.company||w.name||'').trim(); if(n) allNames.add(n) }))
+      rf.workers.forEach(w=>{ const n=(w.company||'').trim(); if(n) allNames.add(n) })
+      if(!allNames.size) return ''
+      return `<div style="margin-top:20px;border-top:1px solid #f1f5f9;padding-top:14px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px">Valoración media por subcontrata · Toda la obra</div>
+        ${[...allNames].map(c=>{
+          const d=rd[c]
+          if(!d) return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc"><span style="font-size:12px;color:#64748b">${esc(c)}</span><span style="font-size:11px;color:#cbd5e1">Sin valorar</span></div>`
+          const avg=d.sum/d.n
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc">
+            <span style="font-size:12px;color:#374151">${esc(c)}</span>
+            <span style="display:flex;align-items:center;gap:5px">
+              <span style="background:${ratingBg(avg)};color:${ratingColor(avg)};font-size:12px;font-weight:800;padding:1px 8px;border-radius:6px">${avg.toFixed(1)}</span>
+              <span style="font-size:10px;color:#94a3b8">${d.n} sem.</span>
+            </span>
+          </div>`
+        }).join('')}
+      </div>`
+    })()}`
+}
+
+async function handleGeneratePDF(){
+  const btn=$('btn-pdf'); btn.textContent='Generando PDF…'; btn.disabled=true
+  try {
+    const blob=await generatePDF()
+    rfPdfBlob=blob; rfPdfGenerated=true
+    const url=URL.createObjectURL(blob)
+    const a=document.createElement('a')
+    const p=projects.find(x=>x.id===rf.projectId)
+    a.href=url; a.download=`Informe_${p?.code}_S${rf.weekNumber}_${rf.year}.pdf`; a.click()
+    URL.revokeObjectURL(url)
+    renderStep4()
+    showResult('step4-result','PDF generado y descargado correctamente',true)
+  } catch(e) {
+    btn.disabled=false; btn.textContent='Generar PDF'
+    showResult('step4-result','Error al generar el PDF: '+e.message,false)
+  }
+}
+
+async function handleSendEmail(){
+  if(!rfPdfBlob) return
+  const btn=$('btn-send'); btn.textContent='Enviando…'; btn.disabled=true
+  try {
+    const b64=await blobToBase64(rfPdfBlob)
+    const p=projects.find(x=>x.id===rf.projectId)
+    const weekStr=`Semana ${rf.weekNumber}/${rf.year}`
+    const res=await fetch('/api/send-report',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        to:p.managerEmail,
+        subject:`[${p.code}] Informe ${weekStr}`,
+        htmlBody:buildEmailHtml(p,weekStr),
+        pdfBase64:b64.split(',')[1],
+        pdfFilename:`Informe_${p.code}_S${rf.weekNumber}_${rf.year}.pdf`
+      })
+    })
+    const d=await res.json()
+    if(d.success){
+      reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
+      saveReports()
+      showResult('step4-result',`Informe enviado a ${p.managerEmail}`,true)
+      renderStep4()
+    } else {
+      showResult('step4-result',d.error||'Error al enviar',false)
+    }
+  } catch{
+    showResult('step4-result','No se pudo conectar con el servidor. ¿Está ejecutándose app.py?',false)
+  }
+  $('btn-send').disabled=false; $('btn-send').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Informe por Email'
+}
+
+function buildEmailHtml(p,weekStr){
+  return`<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:#2563eb;color:#fff;padding:24px;border-radius:12px 12px 0 0"><h1 style="margin:0;font-size:20px">Informe Semanal de Obra</h1><p style="margin:8px 0 0;opacity:.8">${weekStr} · ${weekRange(rf.weekNumber,rf.year)}</p></div><div style="background:#f8fafc;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none"><table style="width:100%;border-collapse:collapse"><tr><td style="padding:6px 0;color:#64748b;font-size:14px">Código de obra</td><td style="padding:6px 0;font-weight:700">${p.code}</td></tr><tr><td style="padding:6px 0;color:#64748b;font-size:14px">Obra</td><td style="padding:6px 0">${p.name}</td></tr><tr><td style="padding:6px 0;color:#64748b;font-size:14px">Operarios</td><td style="padding:6px 0">${rf.workers.length}</td></tr><tr><td style="padding:6px 0;color:#64748b;font-size:14px">Fotografías</td><td style="padding:6px 0">${rf.photos.length}</td></tr></table><p style="margin:16px 0 0;color:#475569;font-size:14px">Adjunto encontrará el informe semanal completo en PDF.</p></div></div>`
+}
+
+function blobToBase64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(blob) }) }
+
+function renderFooter(){
+  const f=$('rf-footer')
+  if(rfStep===TOTAL_STEPS-1){ f.innerHTML=''; return }
+  const backBtn=rfStep>0?`<button class="btn btn-secondary" style="padding:12px 20px" onclick="reportBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><polyline points="15 18 9 12 15 6"/></svg> Atrás</button>`:''
+  f.innerHTML=`${backBtn}<button class="btn btn-primary" style="flex:1" onclick="reportNext()">Siguiente <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><polyline points="9 18 15 12 9 6"/></svg></button>`
+}
+
+// ─── PDF GENERATOR ────────────────────────────────────────────────
+async function generatePDF(){
+  const { jsPDF } = window.jspdf
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
+  const p = projects.find(x => x.id === rf.projectId)
+  // Pre-compute rating summary (used in footer strip)
+  const allPdfNames=new Set()
+  getProjectReports(rf.projectId).forEach(rep=>migrateWorkers(rep.workers||[]).forEach(w=>{const n=(w.company||w.name||'').trim();if(n)allPdfNames.add(n)}))
+  rf.workers.forEach(w=>{const n=(w.company||'').trim();if(n)allPdfNames.add(n)})
+  const rd6=allPdfNames.size?getCompanyRatingData(rf.projectId):{}
+  const hasRatings=allPdfNames.size>0
+  const pw = 210, ph = 297, lm = 15, rm = 15, rw = pw - lm - rm, bm = hasRatings ? 24 : 15
+  let y = 0
+
+  const BLUE=[37,99,235], DARK=[15,23,42], GRAY=[100,116,139], LIGHT=[248,250,252], LINE=[226,232,240]
+
+  // Header
+  const hasLogo=!!(settings.logoBase64)
+  const headerH=hasLogo?52:44
+  doc.setFillColor(...BLUE); doc.rect(0,0,pw,headerH,'F')
+  if(hasLogo){
+    // White box background for logo
+    doc.setFillColor(255,255,255); doc.roundedRect(lm,6,38,18,2,2,'F')
+    try{ doc.addImage(settings.logoBase64,lm+2,7.5,34,15,undefined,'FAST') }catch{}
+    // Title & company below the logo box
+    doc.setTextColor(255,255,255); doc.setFontSize(15); doc.setFont('helvetica','bold')
+    doc.text('INFORME SEMANAL DE OBRA', lm, 33)
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(186,210,255)
+    doc.text(`${settings.companyName||'Empresa'} · Climatización`, lm, 40)
+  } else {
+    doc.setTextColor(255,255,255); doc.setFontSize(19); doc.setFont('helvetica','bold')
+    doc.text('INFORME SEMANAL DE OBRA', lm, 16)
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(186,210,255)
+    doc.text(`${settings.companyName||'Empresa'} · Climatización`, lm, 23)
+  }
+  // Right column (week/project info)
+  doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold')
+  doc.text(`SEMANA ${rf.weekNumber}/${rf.year}`, pw-rm, 12, {align:'right'})
+  doc.setFontSize(8); doc.setFont('helvetica','normal')
+  doc.text(weekRange(rf.weekNumber,rf.year), pw-rm, 18, {align:'right'})
+  doc.setFont('helvetica','bold')
+  doc.text(p.code, pw-rm, hasLogo?27:25, {align:'right'})
+  doc.setFont('helvetica','normal')
+  doc.text(p.name, pw-rm, hasLogo?34:31, {align:'right'})
+  doc.setTextColor(186,210,255); doc.setFontSize(7.5)
+  doc.text(`Jefe de Obra: ${p.managerName||p.managerEmail}`, pw-rm, hasLogo?41:37, {align:'right'})
+  y = headerH + 8
+
+  function secTitle(text, yy){
+    doc.setFillColor(...BLUE); doc.roundedRect(lm,yy,rw,8,2,2,'F')
+    doc.setTextColor(255,255,255); doc.setFontSize(8.5); doc.setFont('helvetica','bold')
+    doc.text(text.toUpperCase(), lm+4, yy+5.5)
+    return yy+12
+  }
+  function addPage(yy,need=40){ if(yy+need>ph-bm){ doc.addPage(); return bm } return yy }
+
+  // 1. Comparativa
+  y=secTitle('1. Comparativa con Semana Anterior',y)
+  const cw2=(rw-4)/2, hh=7
+  doc.setFillColor(...LIGHT); doc.rect(lm,y,cw2,hh,'F'); doc.rect(lm+cw2+4,y,cw2,hh,'F')
+  doc.setFontSize(7.5); doc.setFont('helvetica','bold')
+  doc.setTextColor(217,119,6); doc.text('PREVISTO (semana anterior)',lm+3,y+5)
+  doc.setTextColor(22,163,74); doc.text('REALIZADO (esta semana)',lm+cw2+7,y+5)
+  y+=hh+3
+  const ll=doc.splitTextToSize(rf.prevPlan||'Sin planificación registrada',cw2-4)
+  const rl=doc.splitTextToSize(rf.worksCompleted||'—',cw2-4)
+  const rh=Math.max(ll.length,rl.length)*5+8
+  y=addPage(y,rh); doc.setFillColor(...LIGHT)
+  doc.roundedRect(lm,y,cw2,rh,2,2,'F'); doc.roundedRect(lm+cw2+4,y,cw2,rh,2,2,'F')
+  doc.setFontSize(8); doc.setFont('helvetica','normal')
+  doc.setTextColor(...GRAY); ll.forEach((l,i)=>doc.text(l,lm+3,y+5+i*5))
+  doc.setTextColor(...DARK); rl.forEach((l,i)=>doc.text(l,lm+cw2+7,y+5+i*5))
+  y+=rh+10
+
+  // 2. Subcontratas
+  const totOps=rf.workers.reduce((s,w)=>s+(parseInt(w.count)||0),0)
+  y=addPage(y,30); y=secTitle(`2. Subcontratas Asignadas · ${totOps} operarios en total`,y)
+  if(rf.workers.length){
+    const rh=8
+    // Header — Empresa / Ops. / Nota sem.
+    doc.setFillColor(...DARK); doc.rect(lm,y,rw,rh,'F')
+    doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont('helvetica','bold')
+    doc.text('Empresa subcontratista',lm+4,y+5.5)
+    doc.text('Ops.',lm+rw*.68,y+5.5)
+    doc.text('Nota sem.',lm+rw*.84,y+5.5)
+    y+=rh
+    rf.workers.forEach((w,i)=>{
+      y=addPage(y,rh)
+      doc.setFillColor(i%2===0?248:255,i%2===0?250:255,i%2===0?252:255); doc.rect(lm,y,rw,rh,'F')
+      doc.setFontSize(8.5); doc.setFont('helvetica','normal')
+      doc.setTextColor(...DARK); doc.text(w.company||w.name||'',lm+4,y+5.5)
+      doc.setTextColor(...GRAY); doc.text(String(w.count||1),lm+rw*.68,y+5.5)
+      // Nota semana
+      const wr=parseFloat(w.rating)
+      if(!isNaN(wr)){
+        const wrc=wr>=7?[22,163,74]:wr>=5?[217,119,6]:[220,38,38]
+        doc.setTextColor(...wrc); doc.setFont('helvetica','bold')
+        doc.text(`${wr}/10`,lm+rw*.84,y+5.5)
+      } else {
+        doc.setTextColor(...GRAY); doc.text('—',lm+rw*.84,y+5.5)
+      }
+      y+=rh
+    })
+    // Total row
+    y=addPage(y,rh); doc.setFillColor(239,246,255); doc.rect(lm,y,rw,rh,'F')
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...BLUE)
+    doc.text('TOTAL',lm+4,y+5.5); doc.text(String(totOps),lm+rw*.62,y+5.5); y+=rh+10
+  } else { doc.setTextColor(...GRAY); doc.setFontSize(9); doc.text('Sin subcontratas registradas',lm+4,y+5); y+=14 }
+
+  // 3. Trabajos
+  y=addPage(y,30); y=secTitle('3. Descripción de Trabajos Realizados',y)
+  const workLines=(rf.worksCompleted||'').split('\n').filter(x=>x.trim())
+  if(workLines.length){
+    workLines.forEach((item,i)=>{
+      const lines=doc.splitTextToSize(item,rw-16),lh=lines.length*5+6
+      y=addPage(y,lh)
+      doc.setFillColor(i%2===0?248:255,i%2===0?250:255,i%2===0?252:255); doc.rect(lm,y,rw,lh,'F')
+      doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(...BLUE)
+      doc.text(`${i+1}.`,lm+3,y+4.5)
+      doc.setFont('helvetica','normal'); doc.setTextColor(...DARK)
+      lines.forEach((l,j)=>doc.text(l,lm+11,y+4.5+j*5)); y+=lh
+    })
+    y+=10
+  } else {
+    doc.setFillColor(...LIGHT); doc.roundedRect(lm,y,rw,10,2,2,'F')
+    doc.setTextColor(...GRAY); doc.setFontSize(9); doc.setFont('helvetica','normal')
+    doc.text('—',lm+4,y+6.5); y+=18
+  }
+
+  // 3b. Observaciones
+  if(rf.observations&&rf.observations.trim()){
+    y=addPage(y,30); y=secTitle('3b. Observaciones del Encargado',y)
+    const ol=doc.splitTextToSize(rf.observations,rw-8),oh=ol.length*5+8
+    y=addPage(y,oh); doc.setFillColor(255,251,235); doc.roundedRect(lm,y,rw,oh,2,2,'F')
+    doc.setDrawColor(253,230,138); doc.rect(lm,y,rw,oh)
+    doc.setTextColor(120,53,15); doc.setFontSize(9); doc.setFont('helvetica','normal')
+    ol.forEach((l,i)=>doc.text(l,lm+4,y+5+i*5)); y+=oh+10
+  }
+
+  // 4. Fotos
+  if(rf.photos.length){
+    y=addPage(y,50); y=secTitle('4. Registro Fotográfico',y)
+    const cols=3,iw=(rw-(cols-1)*4)/cols,ih=iw*.75
+    let col=0,ry=y
+    for(const ph2 of rf.photos){
+      if(col===cols){ col=0; ry+=ih+14 }
+      ry=addPage(ry,ih+20)
+      const x=lm+col*(iw+4)
+      try{ doc.addImage(ph2.dataUrl,'JPEG',x,ry,iw,ih,undefined,'FAST'); doc.setDrawColor(...LINE); doc.rect(x,ry,iw,ih) }catch{}
+      if(ph2.caption){ doc.setFontSize(7); doc.setTextColor(...GRAY); doc.text(doc.splitTextToSize(ph2.caption,iw)[0],x,ry+ih+4) }
+      col++
+    }
+    y=ry+ih+16
+  }
+
+  // 5. Próxima semana
+  y=addPage(y,60); y=secTitle(`5. Planificación Semana ${rf.weekNumber+1}/${rf.year}`,y)
+  function miniNumberedList(label,text,yy){
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...BLUE); doc.text(label,lm,yy+5); yy+=8
+    const lines=(text||'').split('\n').filter(x=>x.trim())
+    if(lines.length){
+      lines.forEach((item,i)=>{
+        const ls=doc.splitTextToSize(item,rw-16),lh=ls.length*5+6
+        yy=addPage(yy,lh)
+        doc.setFillColor(239,246,255); doc.rect(lm,yy,rw,lh,'F')
+        doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(...BLUE)
+        doc.text(`${i+1}.`,lm+3,yy+4.5)
+        doc.setFont('helvetica','normal'); doc.setTextColor(...DARK)
+        ls.forEach((l,j)=>doc.text(l,lm+11,yy+4.5+j*5)); yy+=lh
+      })
+    } else {
+      doc.setFillColor(239,246,255); doc.roundedRect(lm,yy,rw,10,2,2,'F')
+      doc.setTextColor(...GRAY); doc.setFontSize(9); doc.setFont('helvetica','normal')
+      doc.text('—',lm+4,yy+6.5); yy+=10
+    }
+    return yy+8
+  }
+  y=miniNumberedList('MATERIALES NECESARIOS',rf.materialsNeeded,y)
+  y=miniNumberedList('TRABAJOS PREVISTOS',rf.nextWeekWorks,y)
+
+  // Footer all pages
+  const tp=doc.internal.getNumberOfPages()
+  // Pre-build rating label parts for footer strip
+  const ratingParts=[]
+  if(hasRatings){
+    for(const cn of allPdfNames){
+      const cd6=rd6[cn]
+      if(cd6){ const avg6=cd6.sum/cd6.n; ratingParts.push({name:cn,avg:avg6,n:cd6.n,hasVal:true}) }
+      else ratingParts.push({name:cn,avg:null,n:0,hasVal:false})
+    }
+  }
+  for(let i=1;i<=tp;i++){
+    doc.setPage(i)
+    // Ratings strip (just above footer band)
+    if(hasRatings){
+      doc.setFillColor(248,250,252); doc.rect(0,ph-22,pw,10,'F')
+      doc.setDrawColor(...LINE); doc.line(0,ph-22,pw,ph-22)
+      doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY)
+      const label='Valoración media: '
+      doc.text(label,lm,ph-16)
+      let fx=lm+doc.getTextWidth(label)
+      let first6=true
+      for(const rp of ratingParts){
+        if(!first6){
+          doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY)
+          const sep=' · '; doc.text(sep,fx,ph-16); fx+=doc.getTextWidth(sep)
+        }
+        first6=false
+        const nameStr=rp.name.length>20?rp.name.substring(0,18)+'…':rp.name
+        doc.setFont('helvetica','normal'); doc.setTextColor(...DARK)
+        const ns=nameStr+' '; doc.text(ns,fx,ph-16); fx+=doc.getTextWidth(ns)
+        if(rp.hasVal){
+          const rgb6=rp.avg>=7?[22,163,74]:rp.avg>=5?[217,119,6]:[220,38,38]
+          doc.setFont('helvetica','bold'); doc.setTextColor(...rgb6)
+          const as=rp.avg.toFixed(1); doc.text(as,fx,ph-16); fx+=doc.getTextWidth(as)
+          doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY)
+          const ss=` (${rp.n}s)`; doc.text(ss,fx,ph-16); fx+=doc.getTextWidth(ss)
+        } else {
+          doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY)
+          const sv='s/v'; doc.text(sv,fx,ph-16); fx+=doc.getTextWidth(sv)
+        }
+        if(fx>pw-rm-5) break
+      }
+    }
+    // Footer band
+    doc.setFillColor(...LIGHT); doc.rect(0,ph-12,pw,12,'F')
+    doc.setDrawColor(...LINE); doc.line(0,ph-12,pw,ph-12)
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY)
+    doc.text(`${settings.companyName||'Empresa'} · ${p.code} · Semana ${rf.weekNumber}/${rf.year} · Generado ${formatDate(new Date())}`,lm,ph-5)
+    doc.text(`${i}/${tp}`,pw-rm,ph-5,{align:'right'})
+  }
+  return doc.output('blob')
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────
+;(async () => {
+  // Auto-load default PROINTER logo on first run (or if no logo set)
+  if (!settings.logoBase64) {
+    try {
+      const resp = await fetch('/prointer-logo.jpg')
+      const blob = await resp.blob()
+      settings.logoBase64 = await new Promise((res, rej) => {
+        const r = new FileReader()
+        r.onload = () => res(r.result)
+        r.onerror = rej
+        r.readAsDataURL(blob)
+      })
+      DB.set('obra_settings', settings)
+    } catch(e) {}
+  }
+  renderHome()
+  loadSettingsForm()
+  // Registrar Service Worker para PWA
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js').catch(()=>{})
+  }
+})()
+</script>
+</body>
+</html>

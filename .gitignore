@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+*.bat
+node_modules/
+/index.html
+/vite.config.js
+/tailwind.config.js
+/postcss.config.js
+/package.json
+/src/
+/server/
