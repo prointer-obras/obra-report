@@ -1274,11 +1274,8 @@ async function generatePDF(){
   }
   renderHome()
   loadSettingsForm()
-  // Desregistrar cualquier Service Worker anterior y no registrar nuevos
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.getRegistrations().then(regs=>{
-      regs.forEach(r=>r.unregister())
-    })
+    navigator.serviceWorker.register('/sw.js')
   }
 })()
 </script>
