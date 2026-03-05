@@ -27,7 +27,7 @@ window.addEventListener('unhandledrejection',function(e){
 <link rel="manifest" href="/manifest.json"/>
 <link rel="apple-touch-icon" href="/icon-192.png"/>
 <title>Informes de Obra</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fff;min-height:100vh;display:flex;justify-content:center}
@@ -1028,6 +1028,10 @@ function renderFooter(){
 
 // ─── PDF GENERATOR ────────────────────────────────────────────────
 async function generatePDF(){
+  // Esperar a que jsPDF cargue (script defer)
+  if(!window.jspdf){
+    await new Promise(r=>{const t=setInterval(()=>{if(window.jspdf){clearInterval(t);r()}},100)})
+  }
   const { jsPDF } = window.jspdf
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
   const p = projects.find(x => x.id === rf.projectId)
