@@ -1266,9 +1266,13 @@ async function generatePDF(){
   }
   renderHome()
   loadSettingsForm()
-  // Registrar Service Worker para PWA
+  // Service Worker: desregistrar SW antiguos y registrar el nuevo
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').catch(()=>{})
+    navigator.serviceWorker.getRegistrations().then(regs=>{
+      regs.forEach(r=>r.unregister())
+    }).then(()=>{
+      navigator.serviceWorker.register('/sw.js').catch(()=>{})
+    })
   }
 })()
 </script>
