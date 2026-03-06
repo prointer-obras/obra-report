@@ -295,6 +295,57 @@ const DB = {
   set: (k, v) => localStorage.setItem(k, JSON.stringify(v))
 }
 
+// ─── PHOTO STORE (IndexedDB — sin limite de tamaño) ───────────────
+const PhotoStore = (function(){
+  var _db = null
+  function open(cb){
+    if(_db){ cb(_db); return }
+    var req = indexedDB.open('obra-photos-v1', 1)
+    req.onupgradeneeded = function(e){ e.target.result.createObjectStore('photos') }
+    req.onsuccess = function(e){ _db = e.target.result; cb(_db) }
+    req.onerror = function(){ cb(null) }
+  }
+  return {
+    save: function(id, dataUrl, cb){
+      open(function(db){
+        if(!db){ if(cb) cb(); return }
+        try {
+          var tx = db.transaction('photos','readwrite')
+          tx.objectStore('photos').put(dataUrl, id)
+          tx.oncomplete = function(){ if(cb) cb() }
+          tx.onerror = function(){ if(cb) cb() }
+        } catch(e){ if(cb) cb() }
+      })
+    },
+    getAll: function(ids, cb){
+      if(!ids||!ids.length){ cb({}); return }
+      open(function(db){
+        if(!db){ cb({}); return }
+        var result = {}, pending = ids.length
+        function done(){ if(--pending===0) cb(result) }
+        ids.forEach(function(id){
+          try {
+            var tx = db.transaction('photos','readonly')
+            var req = tx.objectStore('photos').get(id)
+            req.onsuccess = function(){ result[id]=req.result||null; done() }
+            req.onerror = function(){ done() }
+          } catch(e){ done() }
+        })
+      })
+    },
+    del: function(ids){
+      if(!ids||!ids.length) return
+      if(typeof ids==='string') ids=[ids]
+      open(function(db){
+        if(!db) return
+        ids.forEach(function(id){
+          try { db.transaction('photos','readwrite').objectStore('photos').delete(id) } catch(e){}
+        })
+      })
+    }
+  }
+})()
+
 let projects  = DB.get('obra_projects', [])
 let reports   = DB.get('obra_reports',  [])
 let settings  = DB.get('obra_settings', { companyName:'PROINTER Proyectos e Instalaciones Térmicas S.L.', logoBase64:'' })
@@ -534,7 +585,9 @@ function getLastReport(pid){ return getProjectReports(pid).find(r=>r.status==='s
 
 function autoSaveDraft(){
   if(!editingReportId) return
-  reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:r.status==='sent'?'sent':'draft',updatedAt:new Date().toISOString()}:r)
+  // Guardar fotos solo con metadatos (sin dataUrl) → localStorage no se satura
+  const photosStripped = rf.photos.map(p=>({id:p.id, caption:p.caption||''}))
+  reports=reports.map(r=>r.id===editingReportId?{...r,...rf,photos:photosStripped,status:r.status==='sent'?'sent':'draft',updatedAt:new Date().toISOString()}:r)
   try{ saveReports() }catch(e){ console.warn('autoSave error:',e) }
 }
 
@@ -544,21 +597,34 @@ function startReport(projectId, reportId=null){
   if(reportId){
     existing=reports.find(r=>r.id===reportId)
   } else {
-    // Resume draft for current week if exists
     existing=reports.find(r=>r.projectId===projectId&&r.weekNumber===cw&&r.year===cy&&r.status==='draft')
+  }
+  function _launch(){
+    rfStep=0; rfPdfBlob=null; rfPdfGenerated=false
+    document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'))
+    document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'))
+    $('page-report').classList.add('active')
+    renderStep()
   }
   if(existing){
     const wc=existing.worksCompleted||'',mn=existing.materialsNeeded||'',nw=existing.nextWeekWorks||''
     rf={projectId:existing.projectId,weekNumber:existing.weekNumber,year:existing.year,
       worksCompleted:wc,
       workItems:existing.workItems||(wc?wc.split('\n').filter(x=>x.trim()):[]),
-      workers:existing.workers||[],photos:existing.photos||[],
+      workers:existing.workers||[],photos:[],
       materialsNeeded:mn,
       materialItems:existing.materialItems||(mn?mn.split('\n').filter(x=>x.trim()):[]),
       nextWeekWorks:nw,
       nextWorkItems:existing.nextWorkItems||(nw?nw.split('\n').filter(x=>x.trim()):[]),
       prevPlan:existing.prevPlan||'',observations:existing.observations||''}
     editingReportId=existing.id
+    // Cargar dataUrls de fotos desde IndexedDB
+    const rawPhotos = existing.photos||[]
+    const idsToFetch = rawPhotos.filter(p=>!p.dataUrl).map(p=>p.id)
+    PhotoStore.getAll(idsToFetch, function(fetched){
+      rf.photos = rawPhotos.map(p=>({id:p.id, caption:p.caption||'', dataUrl:p.dataUrl||fetched[p.id]||''}))
+      _launch()
+    })
   } else {
     const lr=getLastReport(projectId)
     const newId=uid()
@@ -569,12 +635,8 @@ function startReport(projectId, reportId=null){
     reports.push({id:newId,...rf,status:'draft',createdAt:new Date().toISOString()})
     saveReports()
     editingReportId=newId
+    _launch()
   }
-  rfStep=0; rfPdfBlob=null; rfPdfGenerated=false
-  document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'))
-  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'))
-  $('page-report').classList.add('active')
-  renderStep()
 }
 
 function editReport(id){
@@ -587,6 +649,14 @@ function viewReport(id){
   const r=reports.find(x=>x.id===id)
   const p=projects.find(x=>x.id===(r&&r.projectId))
   if(!r||!p) return
+  const rawPhotos = r.photos||[]
+  const idsToFetch = rawPhotos.filter(ph=>!ph.dataUrl).map(ph=>ph.id)
+  PhotoStore.getAll(idsToFetch, function(fetched){
+    const photos = rawPhotos.map(ph=>({...ph, dataUrl:ph.dataUrl||fetched[ph.id]||''}))
+    _showViewModal(r, p, photos)
+  })
+}
+function _showViewModal(r, p, photos){
   const m=document.createElement('div'); m.className='modal-overlay'; m.style.display='flex'
   m.innerHTML=`<div class="modal" style="max-height:85vh;overflow-y:auto">
     <div class="modal-header">
@@ -601,7 +671,7 @@ function viewReport(id){
       <div class="sum-row"><span class="sum-key">Obra</span><span class="sum-val">${esc(p.name)}</span></div>
       <div class="sum-row"><span class="sum-key">Semana</span><span class="sum-val">${weekRange(r.weekNumber,r.year)}</span></div>
       <div class="sum-row"><span class="sum-key">Operarios</span><span class="sum-val">${totalWorkers(r.workers)} (${ (r.workers&&r.workers.length)||0} empresa${((r.workers&&r.workers.length)||0)!==1?'s':''})</span></div>
-      <div class="sum-row"><span class="sum-key">Fotos</span><span class="sum-val">${(r.photos&&r.photos.length)||0}</span></div>
+      <div class="sum-row"><span class="sum-key">Fotos</span><span class="sum-val">${photos.length||0}</span></div>
       ${r.sentAt?`<div class="sum-row"><span class="sum-key">Enviado</span><span class="sum-val">${formatDate(r.sentAt)}</span></div>`:''}
       ${r.prevPlan?`<div style="margin-top:14px"><div class="sec-title">Previsto semana anterior</div><p style="font-size:13px;color:#78350f;background:#fffbeb;border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.5">${esc(r.prevPlan)}</p></div>`:''}
       <div style="margin-top:14px"><div class="sec-title">Trabajos realizados</div><p style="font-size:13px;color:#374151;background:#f8fafc;border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.5">${esc(r.worksCompleted||'—')}</p></div>
@@ -624,7 +694,7 @@ function viewReport(id){
         </div>`:''
         return `<div style="margin-top:14px"><div class="sec-title">Subcontratas · ${totalWorkers(r.workers)} operarios total</div>${workersHtml}${avgBlock}</div>`
       })()}
-      ${(r.photos&&r.photos.length)?`<div style="margin-top:14px"><div class="sec-title">Fotografías (${r.photos.length})</div><div class="photo-grid">${r.photos.map(ph=>`<div class="photo-cell"><img src="${ph.dataUrl}" alt="${esc(ph.caption||'')}"/></div>`).join('')}</div></div>`:''}
+      ${photos.length?`<div style="margin-top:14px"><div class="sec-title">Fotografías (${photos.length})</div><div class="photo-grid">${photos.map(ph=>ph.dataUrl?`<div class="photo-cell"><img src="${ph.dataUrl}" alt="${esc(ph.caption||'')}"/></div>`:'').join('')}</div></div>`:''}
       <div style="margin-top:14px"><div class="sec-title">Planificación semana siguiente</div>
         <p style="font-size:11px;font-weight:700;color:#2563eb;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Materiales</p>
         <p style="font-size:13px;color:#374151;background:#eff6ff;border-radius:10px;padding:10px 12px;white-space:pre-wrap;margin-bottom:10px">${esc(r.materialsNeeded||'—')}</p>
@@ -641,6 +711,7 @@ function deleteReport(id){
   if(!r) return
   if(r.status==='sent'){ alert('No se puede eliminar un informe ya enviado.'); return }
   if(!confirm(`¿Eliminar este borrador (Semana ${r.weekNumber}/${r.year})?`)) return
+  PhotoStore.del((r.photos||[]).map(p=>p.id))
   reports=reports.filter(x=>x.id!==id); saveReports(); renderHome()
 }
 
@@ -884,12 +955,15 @@ function handlePhotoInput(e){
   Array.from(e.target.files).forEach(function(f){
     var r=new FileReader(); r.onload=function(ev){
       compressPhoto(ev.target.result,function(compressed){
-        rf.photos.push({id:uid(),dataUrl:compressed,caption:''}); renderPhotos()
+        var id=uid()
+        PhotoStore.save(id, compressed, function(){
+          rf.photos.push({id:id, dataUrl:compressed, caption:''}); renderPhotos()
+        })
       })
     }; r.readAsDataURL(f)
   }); e.target.value=''
 }
-function removePhoto(id){ rf.photos=rf.photos.filter(p=>p.id!==id); renderPhotos() }
+function removePhoto(id){ PhotoStore.del(id); rf.photos=rf.photos.filter(p=>p.id!==id); renderPhotos() }
 function setCaption(id,v){ rf.photos=rf.photos.map(p=>p.id===id?{...p,caption:v}:p) }
 
 function renderStep3(){
