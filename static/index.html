@@ -1338,6 +1338,22 @@ async function generatePDF(){
   return doc.output('blob')
 }
 
+// ─── MIGRACIÓN: mover fotos antiguas de localStorage a IndexedDB ──
+function migratePhotosToIndexedDB(){
+  var migrated=false
+  reports=reports.map(function(r){
+    if(!r.photos||!r.photos.length) return r
+    var needsMigration=r.photos.some(function(p){ return p.dataUrl&&p.dataUrl.length>100 })
+    if(!needsMigration) return r
+    migrated=true
+    r.photos.forEach(function(p){
+      if(p.dataUrl) PhotoStore.save(p.id, p.dataUrl, null)
+    })
+    return Object.assign({},r,{photos:r.photos.map(function(p){ return {id:p.id,caption:p.caption||''} })})
+  })
+  if(migrated){ try{ saveReports() }catch(e){} }
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────
 ;(async () => {
   // Auto-load default PROINTER logo on first run (or if no logo set)
@@ -1354,6 +1370,7 @@ async function generatePDF(){
       DB.set('obra_settings', settings)
     } catch(e) {}
   }
+  migratePhotosToIndexedDB()
   renderHome()
   loadSettingsForm()
   if('serviceWorker' in navigator){
