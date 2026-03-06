@@ -79,6 +79,11 @@ textarea.inp{resize:vertical;min-height:110px;line-height:1.6}
 .worker-name{font-weight:600;font-size:14px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .worker-role{font-size:12px;color:#64748b}
 
+/* Spinner */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+.spinner-sm{width:20px;height:20px;border:2px solid #e2e8f0;border-top-color:#94a3b8;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+
 /* Photo grid */
 .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 .photo-cell{aspect-ratio:1;border-radius:12px;overflow:hidden;position:relative;background:#f1f5f9}
@@ -618,9 +623,17 @@ function startReport(projectId, reportId=null){
       nextWorkItems:existing.nextWorkItems||(nw?nw.split('\n').filter(x=>x.trim()):[]),
       prevPlan:existing.prevPlan||'',observations:existing.observations||''}
     editingReportId=existing.id
-    // Cargar dataUrls de fotos desde IndexedDB
+    // Mostrar pantalla de informe con spinner mientras cargan las fotos de IndexedDB
     const rawPhotos = existing.photos||[]
     const idsToFetch = rawPhotos.filter(p=>!p.dataUrl).map(p=>p.id)
+    if(idsToFetch.length){
+      rfStep=0; rfPdfBlob=null; rfPdfGenerated=false
+      document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'))
+      document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'))
+      $('page-report').classList.add('active')
+      $('rf-content').innerHTML='<div style="text-align:center;padding:60px 0 40px"><div class="spinner"></div><p style="font-size:13px;color:#94a3b8;margin-top:14px">Cargando informe…</p></div>'
+      $('rf-footer').innerHTML=''
+    }
     PhotoStore.getAll(idsToFetch, function(fetched){
       rf.photos = rawPhotos.map(p=>({id:p.id, caption:p.caption||'', dataUrl:p.dataUrl||fetched[p.id]||''}))
       _launch()
@@ -935,7 +948,10 @@ function renderStep2(){
 }
 function renderPhotos(){
   const g=$('photo-grid'),c=$('photo-captions'); if(!g) return
-  g.innerHTML=rf.photos.map((p,i)=>`<div class="photo-cell"><img src="${p.dataUrl}" alt=""/><button type="button" class="photo-del" onclick="removePhoto('${p.id}')">✕</button></div>`).join('')+
+  g.innerHTML=rf.photos.map((p,i)=>p.dataUrl
+    ?`<div class="photo-cell"><img src="${p.dataUrl}" alt=""/><button type="button" class="photo-del" onclick="removePhoto('${p.id}')">✕</button></div>`
+    :`<div class="photo-cell" style="display:flex;align-items:center;justify-content:center"><div class="spinner-sm"></div></div>`
+  ).join('')+
     `<label for="photo-input" class="photo-add">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       Añadir
