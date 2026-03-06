@@ -535,7 +535,7 @@ function getLastReport(pid){ return getProjectReports(pid).find(r=>r.status==='s
 function autoSaveDraft(){
   if(!editingReportId) return
   reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:r.status==='sent'?'sent':'draft',updatedAt:new Date().toISOString()}:r)
-  saveReports()
+  try{ saveReports() }catch(e){ console.warn('autoSave error:',e) }
 }
 
 function startReport(projectId, reportId=null){
@@ -871,9 +871,22 @@ function renderPhotos(){
     </label>`
   if(c) c.innerHTML=rf.photos.length?'<div style="margin-top:10px;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px">Descripciones (opcional)</div>'+rf.photos.map((p,i)=>`<div class="flex gap-2 mb-2"><img src="${p.dataUrl}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;flex-shrink:0"/><input class="inp" style="font-size:13px;padding:8px 12px" placeholder="Descripción foto ${i+1}…" value="${esc(p.caption||'')}" oninput="setCaption('${p.id}',this.value)"/></div>`).join(''):''
 }
+function compressPhoto(dataUrl, cb){
+  var img=new Image(); img.onload=function(){
+    var MAX=1200, w=img.width, h=img.height
+    if(w>MAX||h>MAX){ if(w>h){h=Math.round(h*MAX/w);w=MAX}else{w=Math.round(w*MAX/h);h=MAX} }
+    var canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h
+    canvas.getContext('2d').drawImage(img,0,0,w,h)
+    cb(canvas.toDataURL('image/jpeg',0.75))
+  }; img.src=dataUrl
+}
 function handlePhotoInput(e){
-  Array.from(e.target.files).forEach(f=>{
-    const r=new FileReader(); r.onload=ev=>{ rf.photos.push({id:uid(),dataUrl:ev.target.result,caption:''}); renderPhotos() }; r.readAsDataURL(f)
+  Array.from(e.target.files).forEach(function(f){
+    var r=new FileReader(); r.onload=function(ev){
+      compressPhoto(ev.target.result,function(compressed){
+        rf.photos.push({id:uid(),dataUrl:compressed,caption:''}); renderPhotos()
+      })
+    }; r.readAsDataURL(f)
   }); e.target.value=''
 }
 function removePhoto(id){ rf.photos=rf.photos.filter(p=>p.id!==id); renderPhotos() }
