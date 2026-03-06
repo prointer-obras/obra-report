@@ -44,12 +44,23 @@ def send_report():
     if not smtp_cfg['user'] or not smtp_cfg['password']:
         return jsonify({'success': False, 'error': 'Servidor de correo no configurado.'}), 400
 
-    data     = request.get_json()
-    to       = data.get('to', '')
-    subject  = data.get('subject', 'Informe Semanal')
-    html_body= data.get('htmlBody', '')
-    pdf_b64  = data.get('pdfBase64', '')
-    pdf_name = data.get('pdfFilename', 'informe.pdf')
+    # Acepta tanto multipart/form-data (nuevo, binario) como JSON+base64 (legacy)
+    ct = request.content_type or ''
+    if 'multipart/form-data' in ct:
+        to        = request.form.get('to', '')
+        subject   = request.form.get('subject', 'Informe Semanal')
+        html_body = request.form.get('htmlBody', '')
+        pdf_file  = request.files.get('pdf')
+        pdf_bytes = pdf_file.read() if pdf_file else None
+        pdf_name  = pdf_file.filename if pdf_file else 'informe.pdf'
+    else:
+        data      = request.get_json(force=True)
+        to        = data.get('to', '')
+        subject   = data.get('subject', 'Informe Semanal')
+        html_body = data.get('htmlBody', '')
+        pdf_b64   = data.get('pdfBase64', '')
+        pdf_bytes = base64.b64decode(pdf_b64) if pdf_b64 else None
+        pdf_name  = data.get('pdfFilename', 'informe.pdf')
 
     try:
         msg = MIMEMultipart('mixed')
@@ -58,15 +69,16 @@ def send_report():
         msg['Subject'] = subject
         msg.attach(MIMEText(html_body, 'html', 'utf-8'))
 
-        if pdf_b64:
+        if pdf_bytes:
             part = MIMEBase('application', 'octet-stream')
-            part.set_payload(base64.b64decode(pdf_b64))
+            part.set_payload(pdf_bytes)
             encoders.encode_base64(part)
             part.add_header('Content-Disposition', f'attachment; filename="{pdf_name}"')
             msg.attach(part)
 
         ctx = ssl.create_default_context()
-        with smtplib.SMTP(smtp_cfg['host'], smtp_cfg['port']) as s:
+        # timeout=25 evita que Render (30s max) corte la conexión antes que Python
+        with smtplib.SMTP(smtp_cfg['host'], smtp_cfg['port'], timeout=25) as s:
             s.ehlo(); s.starttls(context=ctx)
             s.login(smtp_cfg['user'], smtp_cfg['password'])
             s.sendmail(smtp_cfg['user'], to, msg.as_string())

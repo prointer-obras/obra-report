@@ -1101,24 +1101,23 @@ async function handleSendEmail(){
     return
   }
 
-  // ── Fase 2: enviar PDF (servidor ya despierto, respuesta r\u00e1pida) ─────────
+  // ── Fase 2: enviar PDF como FormData binario (sin base64, m\u00e1s ligero) ──────
   btn.textContent='Enviando PDF\u2026'
   var ctrl2=new AbortController()
   var t2=setTimeout(function(){ ctrl2.abort() },60000)
   try {
-    const b64=await blobToBase64(rfPdfBlob)
     const p=projects.find(x=>x.id===rf.projectId)
     const weekStr=`Semana ${rf.weekNumber}/${rf.year}`
+    const pdfFilename=`Informe_${p.code}_S${rf.weekNumber}_${rf.year}.pdf`
+    var fd=new FormData()
+    fd.append('pdf', rfPdfBlob, pdfFilename)
+    fd.append('to', p.managerEmail)
+    fd.append('subject', `[${p.code}] Informe ${weekStr}`)
+    fd.append('htmlBody', buildEmailHtml(p,weekStr))
     const res=await fetch('/api/send-report',{
-      method:'POST',headers:{'Content-Type':'application/json'},
+      method:'POST',
       signal:ctrl2.signal,
-      body:JSON.stringify({
-        to:p.managerEmail,
-        subject:`[${p.code}] Informe ${weekStr}`,
-        htmlBody:buildEmailHtml(p,weekStr),
-        pdfBase64:b64.split(',')[1],
-        pdfFilename:`Informe_${p.code}_S${rf.weekNumber}_${rf.year}.pdf`
-      })
+      body:fd
     })
     clearTimeout(t2)
     const d=await res.json()
@@ -1135,7 +1134,7 @@ async function handleSendEmail(){
     if(err.name==='AbortError'){
       showResult('step4-result','Tiempo de espera agotado. Inténtalo de nuevo.',false)
     } else {
-      showResult('step4-result','Error al enviar el informe. Comprueba tu conexi\u00f3n.',false)
+      showResult('step4-result','Error ('+err.name+'): '+err.message,false)
     }
   }
   btn.disabled=false
