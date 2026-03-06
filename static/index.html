@@ -1430,6 +1430,10 @@ function migratePhotosToIndexedDB(){
   loadSettingsForm()
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('/sw.js')
+    // Cuando un nuevo SW toma el control, recargar para coger el HTML actualizado
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      window.location.reload()
+    })
   }
 })()
 </script>
