@@ -1026,7 +1026,13 @@ function renderStep4(){
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       ${alreadySent?'Volver a compartir PDF':'Enviar / Compartir PDF'}
     </button>
-    ${(p&&p.managerEmail)?`<p style="font-size:11px;color:#64748b;text-align:center;margin-top:6px">Se abrirá tu app de correo · Para: <strong>${esc(p.managerEmail)}</strong></p>`:'<p style="font-size:11px;color:#b45309;text-align:center;margin-top:8px">Configura el email del Jefe de Obra en la sección Obras</p>'}
+    ${(p&&p.managerEmail)?`
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px">
+      <span style="font-size:12px;color:#475569">Para: <strong>${esc(p.managerEmail)}</strong></span>
+      <button type="button" onclick="copyEmail('${esc(p.managerEmail)}')" style="font-size:11px;padding:2px 10px;border:1px solid #cbd5e1;border-radius:5px;background:#f8fafc;color:#475569;cursor:pointer">Copiar</button>
+    </div>
+    <p style="font-size:10px;color:#94a3b8;text-align:center;margin-top:3px">Pega la dirección en el campo "Para:" de tu correo</p>`
+    :'<p style="font-size:11px;color:#b45309;text-align:center;margin-top:8px">Configura el email del Jefe de Obra en la sección Obras</p>'}
     <div id="step4-result"></div>
     ${(()=>{
       const rd=getCompanyRatingData(rf.projectId)
@@ -1071,6 +1077,19 @@ async function handleGeneratePDF(){
   }
 }
 
+function copyEmail(email){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(email).then(function(){
+      showResult('step4-result','Email copiado al portapapeles',true)
+    })
+  } else {
+    var el=document.createElement('input'); el.value=email
+    document.body.appendChild(el); el.select(); document.execCommand('copy')
+    document.body.removeChild(el)
+    showResult('step4-result','Email copiado al portapapeles',true)
+  }
+}
+
 async function handleSharePDF(){
   if(!rfPdfBlob) return
   const p=projects.find(x=>x.id===rf.projectId)
@@ -1083,7 +1102,7 @@ async function handleSharePDF(){
     try{
       await navigator.share({
         title:`[${p.code}] Informe ${weekStr}`,
-        text:(p&&p.managerEmail)?'Para: '+p.managerEmail:'',
+        text:(p&&p.managerEmail?'Para: '+p.managerEmail+'\n\n':'')+'Adjunto el informe semanal completo en PDF.',
         files:[file]
       })
       // El usuario completó el envío (no canceló)
