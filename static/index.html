@@ -1121,21 +1121,26 @@ async function handleSendEmail(){
     })
     clearTimeout(t2)
     const d=await res.json()
+    console.log('send-report response:', JSON.stringify(d))
     if(d.success){
       reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
       saveReports()
+      renderStep4()  // primero recrea step4-result, luego lo rellena
       showResult('step4-result',`Informe enviado a ${p.managerEmail}`,true)
-      renderStep4()
     } else {
-      showResult('step4-result',d.error||'Error al enviar',false)
+      var msg=d.error||'Error al enviar'
+      showResult('step4-result',msg,false)
+      var el=$('step4-result'); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'})
     }
   } catch(err){
     clearTimeout(t2)
+    console.error('send-report catch:', err.name, err.message)
     if(err.name==='AbortError'){
       showResult('step4-result','Tiempo de espera agotado. Inténtalo de nuevo.',false)
     } else {
       showResult('step4-result','Error ('+err.name+'): '+err.message,false)
     }
+    var el2=$('step4-result'); if(el2) el2.scrollIntoView({behavior:'smooth',block:'nearest'})
   }
   btn.disabled=false
   btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Informe por Email'
