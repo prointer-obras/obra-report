@@ -1031,7 +1031,7 @@ function renderStep4(){
       <span style="font-size:12px;color:#475569">Para: <strong>${esc(p.managerEmail)}</strong></span>
       <button type="button" onclick="copyEmail('${esc(p.managerEmail)}')" style="font-size:11px;padding:2px 10px;border:1px solid #cbd5e1;border-radius:5px;background:#f8fafc;color:#475569;cursor:pointer">Copiar</button>
     </div>
-    <p style="font-size:10px;color:#94a3b8;text-align:center;margin-top:3px">Pega la dirección en el campo "Para:" de tu correo</p>`
+    <p style="font-size:10px;color:#94a3b8;text-align:center;margin-top:3px">El correo se abrirá con Para, Asunto y cuerpo rellenos</p>`
     :'<p style="font-size:11px;color:#b45309;text-align:center;margin-top:8px">Configura el email del Jefe de Obra en la sección Obras</p>'}
     <div id="step4-result"></div>
     ${(()=>{
@@ -1095,35 +1095,29 @@ async function handleSharePDF(){
   const p=projects.find(x=>x.id===rf.projectId)
   const weekStr=`Semana ${rf.weekNumber}/${rf.year}`
   const filename=`Informe_${p.code}_S${rf.weekNumber}_${rf.year}.pdf`
-  const file=new File([rfPdfBlob], filename, {type:'application/pdf'})
 
+  // Paso 1: guardar/compartir el PDF en el dispositivo
+  const file=new File([rfPdfBlob], filename, {type:'application/pdf'})
   if(navigator.canShare && navigator.canShare({files:[file]})){
-    // Web Share API: abre la app de correo/WhatsApp del teléfono con el PDF adjunto
-    try{
-      await navigator.share({
-        title:`[${p.code}] Informe ${weekStr}`,
-        text:(p&&p.managerEmail?'Para: '+p.managerEmail+'\n\n':'')+'Adjunto el informe semanal completo en PDF.',
-        files:[file]
-      })
-      // El usuario completó el envío (no canceló)
-      reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
-      saveReports()
-      renderStep4()
-      showResult('step4-result','Informe compartido correctamente',true)
-    }catch(err){
-      if(err.name!=='AbortError'){
-        showResult('step4-result','Error al compartir: '+err.message,false)
-        var el=$('step4-result'); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'})
-      }
-    }
+    try{ await navigator.share({files:[file]}) }catch(err){ if(err.name==='AbortError') return }
   } else {
-    // Fallback (escritorio o navegador sin soporte): descargar el PDF
-    var url=URL.createObjectURL(rfPdfBlob)
-    var a=document.createElement('a'); a.href=url; a.download=filename; a.click()
-    URL.revokeObjectURL(url)
-    showResult('step4-result','PDF descargado. Adjúntalo al email'+(p&&p.managerEmail?' para '+esc(p.managerEmail):'')+'.',false)
-    var el2=$('step4-result'); if(el2) el2.scrollIntoView({behavior:'smooth',block:'nearest'})
+    var bUrl=URL.createObjectURL(rfPdfBlob)
+    var a=document.createElement('a'); a.href=bUrl; a.download=filename; a.click()
+    URL.revokeObjectURL(bUrl)
   }
+
+  // Paso 2: abrir el correo con Para/Asunto/Cuerpo pre-rellenos
+  const to=(p&&p.managerEmail)||''
+  const subject=encodeURIComponent(`[${p.code}] Informe ${weekStr}`)
+  const body=encodeURIComponent(`Estimado/a,\n\nAdjunto el informe semanal completo en PDF.\n\nObra: ${p&&p.name||''}\n${weekStr}\n\nSaludos`)
+  window.location.href=`mailto:${to}?subject=${subject}&body=${body}`
+
+  reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
+  saveReports()
+  setTimeout(function(){
+    renderStep4()
+    showResult('step4-result','PDF guardado. Adjúntalo al correo que se acaba de abrir.',false)
+  },400)
 }
 
 function buildEmailHtml(p,weekStr){
