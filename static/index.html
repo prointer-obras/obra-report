@@ -1022,12 +1022,12 @@ function renderStep4(){
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       ${rfPdfGenerated?'PDF generado ✓ (regenerar)':'Generar PDF'}
     </button>
-    <button class="btn btn-primary btn-full" id="btn-send" onclick="handleSendEmail()" ${(!rfPdfGenerated||!(p&&p.managerEmail))?'disabled':''}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      ${alreadySent?'Reenviar Informe':'Enviar Informe por Email'}
+    <button class="btn btn-primary btn-full" id="btn-send" onclick="handleSharePDF()" ${!rfPdfGenerated?'disabled':''}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      ${alreadySent?'Volver a compartir PDF':'Enviar / Compartir PDF'}
     </button>
+    ${(p&&p.managerEmail)?`<p style="font-size:11px;color:#64748b;text-align:center;margin-top:6px">Se abrirá tu app de correo · Para: <strong>${esc(p.managerEmail)}</strong></p>`:'<p style="font-size:11px;color:#b45309;text-align:center;margin-top:8px">Configura el email del Jefe de Obra en la sección Obras</p>'}
     <div id="step4-result"></div>
-    ${!(p&&p.managerEmail)?'<p style="font-size:11px;color:#b45309;text-align:center;margin-top:8px">Configura el email del Jefe de Obra en la sección Obras</p>':''}
     ${(()=>{
       const rd=getCompanyRatingData(rf.projectId)
       // TODAS las subcontratas que han aparecido en cualquier semana de esta obra
@@ -1071,79 +1071,40 @@ async function handleGeneratePDF(){
   }
 }
 
-async function handleSendEmail(){
+async function handleSharePDF(){
   if(!rfPdfBlob) return
-  const btn=$('btn-send')
-  btn.disabled=true
+  const p=projects.find(x=>x.id===rf.projectId)
+  const weekStr=`Semana ${rf.weekNumber}/${rf.year}`
+  const filename=`Informe_${p.code}_S${rf.weekNumber}_${rf.year}.pdf`
+  const file=new File([rfPdfBlob], filename, {type:'application/pdf'})
 
-  // ── Fase 1: despertar servidor ──────────────────────────────────────────
-  // (Render free tier duerme tras 15 min; primer request puede tardar 20-30s)
-  btn.textContent='Conectando\u2026'
-  var startMs=Date.now()
-  var tickInterval=setInterval(function(){
-    var s=Math.round((Date.now()-startMs)/1000)
-    if(s>=4) btn.textContent='Despertando servidor ('+s+'s)\u2026'
-  },1000)
-  var ctrl1=new AbortController()
-  var t1=setTimeout(function(){ ctrl1.abort() },50000)
-  try {
-    await fetch('/api/health',{signal:ctrl1.signal})
-    clearTimeout(t1); clearInterval(tickInterval)
-  } catch(err){
-    clearTimeout(t1); clearInterval(tickInterval)
-    if(err.name==='AbortError'){
-      showResult('step4-result','El servidor no responde. Vuelve a intentarlo en unos segundos.',false)
-    } else {
-      showResult('step4-result','Sin conexi\u00f3n con el servidor. Comprueba tu internet.',false)
-    }
-    btn.disabled=false
-    btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Informe por Email'
-    return
-  }
-
-  // ── Fase 2: enviar PDF como FormData binario (sin base64, m\u00e1s ligero) ──────
-  btn.textContent='Enviando PDF\u2026'
-  var ctrl2=new AbortController()
-  var t2=setTimeout(function(){ ctrl2.abort() },60000)
-  try {
-    const p=projects.find(x=>x.id===rf.projectId)
-    const weekStr=`Semana ${rf.weekNumber}/${rf.year}`
-    const pdfFilename=`Informe_${p.code}_S${rf.weekNumber}_${rf.year}.pdf`
-    var fd=new FormData()
-    fd.append('pdf', rfPdfBlob, pdfFilename)
-    fd.append('to', p.managerEmail)
-    fd.append('subject', `[${p.code}] Informe ${weekStr}`)
-    fd.append('htmlBody', buildEmailHtml(p,weekStr))
-    const res=await fetch('/api/send-report',{
-      method:'POST',
-      signal:ctrl2.signal,
-      body:fd
-    })
-    clearTimeout(t2)
-    const d=await res.json()
-    console.log('send-report response:', JSON.stringify(d))
-    if(d.success){
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    // Web Share API: abre la app de correo/WhatsApp del teléfono con el PDF adjunto
+    try{
+      await navigator.share({
+        title:`[${p.code}] Informe ${weekStr}`,
+        text:(p&&p.managerEmail)?'Para: '+p.managerEmail:'',
+        files:[file]
+      })
+      // El usuario completó el envío (no canceló)
       reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
       saveReports()
-      renderStep4()  // primero recrea step4-result, luego lo rellena
-      showResult('step4-result',`Informe enviado a ${p.managerEmail}`,true)
-    } else {
-      var msg=d.error||'Error al enviar'
-      showResult('step4-result',msg,false)
-      var el=$('step4-result'); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'})
+      renderStep4()
+      showResult('step4-result','Informe compartido correctamente',true)
+    }catch(err){
+      if(err.name!=='AbortError'){
+        showResult('step4-result','Error al compartir: '+err.message,false)
+        var el=$('step4-result'); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'})
+      }
     }
-  } catch(err){
-    clearTimeout(t2)
-    console.error('send-report catch:', err.name, err.message)
-    if(err.name==='AbortError'){
-      showResult('step4-result','Tiempo de espera agotado. Inténtalo de nuevo.',false)
-    } else {
-      showResult('step4-result','Error ('+err.name+'): '+err.message,false)
-    }
+  } else {
+    // Fallback (escritorio o navegador sin soporte): descargar el PDF
+    var url=URL.createObjectURL(rfPdfBlob)
+    var a=document.createElement('a'); a.href=url; a.download=filename; a.click()
+    URL.revokeObjectURL(url)
+    showResult('step4-result','PDF descargado. Adjúntalo al email'+(p&&p.managerEmail?' para '+esc(p.managerEmail):'')+'.',false)
     var el2=$('step4-result'); if(el2) el2.scrollIntoView({behavior:'smooth',block:'nearest'})
   }
-  btn.disabled=false
-  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Informe por Email'
 }
 
 function buildEmailHtml(p,weekStr){
