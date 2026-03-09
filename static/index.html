@@ -586,7 +586,7 @@ let rfPdfGenerated=false
 let editingReportId=null
 
 function getProjectReports(pid){ return reports.filter(r=>r.projectId===pid).sort((a,b)=>b.year!==a.year?b.year-a.year:b.weekNumber-a.weekNumber) }
-function getLastReport(pid){ return getProjectReports(pid).find(r=>r.status==='sent')||null }
+function getLastReport(pid){ return getProjectReports(pid)[0]||null }
 
 function autoSaveDraft(){
   if(!editingReportId) return
@@ -621,7 +621,8 @@ function startReport(projectId, reportId=null){
       materialItems:existing.materialItems||(mn?mn.split('\n').filter(x=>x.trim()):[]),
       nextWeekWorks:nw,
       nextWorkItems:existing.nextWorkItems||(nw?nw.split('\n').filter(x=>x.trim()):[]),
-      prevPlan:existing.prevPlan||'',observations:existing.observations||''}
+      prevPlan:existing.prevPlan||(function(){var s=getProjectReports(existing.projectId),i=s.findIndex(function(r){return r.id===existing.id}),pr=i>=0?s[i+1]:null;return(pr&&pr.nextWeekWorks)||''}()),
+      observations:existing.observations||''}
     editingReportId=existing.id
     // Mostrar pantalla de informe con spinner mientras cargan las fotos de IndexedDB
     const rawPhotos = existing.photos||[]
@@ -1095,55 +1096,27 @@ async function handleSharePDF(){
   const p=projects.find(x=>x.id===rf.projectId)
   const weekStr=`Semana ${rf.weekNumber}/${rf.year}`
   const filename=`Informe_${p.code}_S${rf.weekNumber}_${rf.year}.pdf`
-  const to=(p&&p.managerEmail)||''
-  const subject=`[${p.code}] Informe ${weekStr}`
-  const bodyText=`Estimado/a,\n\nAdjunto el informe semanal completo en PDF.\n\nObra: ${p&&p.name||''}\n${weekStr}\n\nSaludos`
+  const bodyText='Un saludo '+(p&&p.managerEmail?p.managerEmail:'')+'. Adjunto envío informe de avances de la obra "'+(p?p.name+' ('+p.code+')':'')+'" para la '+weekStr+'.'
+  const file=new File([rfPdfBlob], filename, {type:'application/pdf'})
 
-  // Intento 1: archivo .eml — pre-rellena Para+Asunto+Cuerpo Y adjunta el PDF
-  // iOS Mail abre el .eml como borrador listo para enviar
-  if(navigator.canShare){
+  if(navigator.canShare && navigator.canShare({files:[file]})){
     try{
-      const pdfB64=await blobToBase64(rfPdfBlob).then(function(d){ return d.split(',')[1] })
-      const boundary='----=_obra_'+Date.now()
-      const eml=[
-        'MIME-Version: 1.0',
-        'To: '+to,
-        'Subject: '+subject,
-        'Content-Type: multipart/mixed; boundary="'+boundary+'"',
-        '',
-        '--'+boundary,
-        'Content-Type: text/plain; charset=utf-8',
-        '',
-        bodyText,
-        '',
-        '--'+boundary,
-        'Content-Type: application/pdf; name="'+filename+'"',
-        'Content-Transfer-Encoding: base64',
-        'Content-Disposition: attachment; filename="'+filename+'"',
-        '',
-        pdfB64,
-        '',
-        '--'+boundary+'--'
-      ].join('\r\n')
-      const emlFile=new File([eml],'informe.eml',{type:'message/rfc822'})
-      if(navigator.canShare({files:[emlFile]})){
-        await navigator.share({files:[emlFile]})
-        reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
-        saveReports(); renderStep4()
-        showResult('step4-result','Informe compartido correctamente',true)
-        return
+      await navigator.share({files:[file], text:bodyText})
+      reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
+      saveReports(); renderStep4()
+      showResult('step4-result','Informe compartido correctamente',true)
+    }catch(err){
+      if(err.name!=='AbortError'){
+        showResult('step4-result','Error al compartir: '+err.message,false)
       }
-    }catch(err){ if(err.name==='AbortError') return }
+    }
+  } else {
+    // Fallback escritorio: descargar PDF
+    var bUrl=URL.createObjectURL(rfPdfBlob)
+    var a=document.createElement('a'); a.href=bUrl; a.download=filename; a.click()
+    URL.revokeObjectURL(bUrl)
+    showResult('step4-result','PDF descargado. Adjúntalo al email'+(p&&p.managerEmail?' para '+esc(p.managerEmail):'')+'.',false)
   }
-
-  // Fallback: mailto con Para+Asunto+Cuerpo (sin adjunto — limitación del navegador)
-  window.location.href='mailto:'+to+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(bodyText)
-  reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
-  saveReports()
-  setTimeout(function(){
-    renderStep4()
-    showResult('step4-result','Correo abierto. Adjunta el PDF manualmente desde Archivos.',false)
-  },400)
 }
 
 function buildEmailHtml(p,weekStr){
