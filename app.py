@@ -2,19 +2,13 @@
 Informes de Obra - Backend Flask
 """
 from flask import Flask, request, jsonify, send_from_directory
-import smtplib, ssl, base64, os
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
+import base64, os, requests as http
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 
-smtp_cfg = {
-    'host':     os.environ.get('SMTP_HOST', 'smtp.gmail.com'),
-    'port':     int(os.environ.get('SMTP_PORT', '587')),
-    'user':     os.environ.get('SMTP_USER', ''),
-    'password': os.environ.get('SMTP_PASS', ''),
+resend_cfg = {
+    'api_key': os.environ.get('RESEND_API_KEY', ''),
+    'from':    os.environ.get('RESEND_FROM', 'Informes de Obra <onboarding@resend.dev>'),
 }
 
 def cors(response):
@@ -28,23 +22,23 @@ def add_cors(r): return cors(r)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def static_files(path):
-    if path and (app.static_folder + '/' + path) and not path.startswith('api/'):
+    if path and not path.startswith('api/'):
         return send_from_directory('static', path)
     return send_from_directory('static', 'index.html')
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'smtp_configured': bool(smtp_cfg['user'] and smtp_cfg['password'])})
+    return jsonify({'status': 'ok', 'resend_configured': bool(resend_cfg['api_key'])})
 
 @app.route('/api/send-report', methods=['POST', 'OPTIONS'])
 def send_report():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
-    if not smtp_cfg['user'] or not smtp_cfg['password']:
-        return jsonify({'success': False, 'error': 'Servidor de correo no configurado.'}), 400
+    if not resend_cfg['api_key']:
+        return jsonify({'success': False, 'error': 'Falta la variable RESEND_API_KEY en el servidor.'}), 400
 
-    # Acepta tanto multipart/form-data (nuevo, binario) como JSON+base64 (legacy)
+    # Acepta multipart/form-data (binario) o JSON+base64 (legacy)
     ct = request.content_type or ''
     if 'multipart/form-data' in ct:
         to        = request.form.get('to', '')
@@ -63,27 +57,32 @@ def send_report():
         pdf_name  = data.get('pdfFilename', 'informe.pdf')
 
     try:
-        msg = MIMEMultipart('mixed')
-        msg['From']    = f'"Informes de Obra" <{smtp_cfg["user"]}>'
-        msg['To']      = to
-        msg['Subject'] = subject
-        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
-
+        payload = {
+            'from':    resend_cfg['from'],
+            'to':      [to],
+            'subject': subject,
+            'html':    html_body,
+        }
         if pdf_bytes:
-            part = MIMEBase('application', 'octet-stream')
-            part.set_payload(pdf_bytes)
-            encoders.encode_base64(part)
-            part.add_header('Content-Disposition', f'attachment; filename="{pdf_name}"')
-            msg.attach(part)
+            payload['attachments'] = [{
+                'filename': pdf_name,
+                'content':  base64.b64encode(pdf_bytes).decode('utf-8'),
+            }]
 
-        ctx = ssl.create_default_context()
-        # timeout=25 evita que Render (30s max) corte la conexión antes que Python
-        with smtplib.SMTP(smtp_cfg['host'], smtp_cfg['port'], timeout=25) as s:
-            s.ehlo(); s.starttls(context=ctx)
-            s.login(smtp_cfg['user'], smtp_cfg['password'])
-            s.sendmail(smtp_cfg['user'], to, msg.as_string())
-
-        return jsonify({'success': True, 'message': f'Informe enviado a {to}'})
+        resp = http.post(
+            'https://api.resend.com/emails',
+            headers={
+                'Authorization': f'Bearer {resend_cfg["api_key"]}',
+                'Content-Type':  'application/json',
+            },
+            json=payload,
+            timeout=25,
+        )
+        resp_data = resp.json()
+        if resp.status_code in (200, 201):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': resp_data.get('message', f'Resend error {resp.status_code}')}), 500
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
