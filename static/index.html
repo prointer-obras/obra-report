@@ -1099,14 +1099,14 @@ function handleSendEmail(){
   const subject='['+p.code+'] Informe '+weekStr
   const btn=document.getElementById('btn-send')
   if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Enviando…' }
-  const reader=new FileReader()
-  reader.onload=function(e){
-    const base64=e.target.result.split(',')[1]
-    fetch('/api/send-report',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({to:p.managerEmail,subject:subject,htmlBody:buildEmailHtml(p,weekStr),pdfBase64:base64,pdfFilename:filename})
-    }).then(function(r){
+  // Enviar como multipart/form-data (binario) — más eficiente que JSON+base64
+  var fd=new FormData()
+  fd.append('to',p.managerEmail)
+  fd.append('subject',subject)
+  fd.append('htmlBody',buildEmailHtml(p,weekStr))
+  fd.append('pdf',rfPdfBlob,filename)
+  fd.append('pdfFilename',filename)
+  fetch('/api/send-report',{method:'POST',body:fd}).then(function(r){
       var ct=r.headers.get('content-type')||''
       if(!ct.includes('application/json')) return r.text().then(function(t){ return {success:false,error:'HTTP '+r.status+' – '+t.substring(0,120)} })
       return r.json()
