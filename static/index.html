@@ -1110,7 +1110,10 @@ function handleSendEmail(){
       if(data.success){
         reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
         saveReports(); renderStep4()
-        showResult('step4-result','✓ Informe enviado a '+esc(p.managerEmail),true)
+        // Mensaje persistente (no desaparece) + botón verde de confirmación
+        var res=$('step4-result')
+        if(res) res.innerHTML='<div class="alert alert-success" style="margin-top:12px;font-size:14px;padding:14px 16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><div><strong>Informe enviado correctamente</strong><div style="font-size:12px;margin-top:2px;opacity:.85">Destinatario: '+esc(p.managerEmail)+'</div></div></div>'
+        var sb=$('btn-send'); if(sb){ sb.style.background='#16a34a'; sb.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><polyline points="20 6 9 17 4 12"/></svg> Informe enviado' }
       } else {
         if(btn){ btn.disabled=false; renderStep4() }
         showResult('step4-result','Error al enviar: '+data.error,false)
