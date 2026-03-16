@@ -1023,16 +1023,16 @@ function renderStep4(){
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       ${rfPdfGenerated?'PDF generado ✓ (regenerar)':'Generar PDF'}
     </button>
-    <button class="btn btn-primary btn-full" id="btn-send" onclick="handleSharePDF()" ${!rfPdfGenerated?'disabled':''}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-      ${alreadySent?'Volver a compartir PDF':'Enviar / Compartir PDF'}
+    <button class="btn btn-primary btn-full" id="btn-send" onclick="handleSendEmail()" ${!rfPdfGenerated?'disabled':''}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+      ${alreadySent?'Volver a enviar informe':'Enviar informe'}
     </button>
     ${(p&&p.managerEmail)?`
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px">
       <span style="font-size:12px;color:#475569">Para: <strong>${esc(p.managerEmail)}</strong></span>
       <button type="button" onclick="copyEmail('${esc(p.managerEmail)}')" style="font-size:11px;padding:2px 10px;border:1px solid #cbd5e1;border-radius:5px;background:#f8fafc;color:#475569;cursor:pointer">Copiar</button>
     </div>
-    <p style="font-size:10px;color:#94a3b8;text-align:center;margin-top:3px">El correo se abrirá con Para, Asunto y cuerpo rellenos</p>`
+    <p style="font-size:10px;color:#94a3b8;text-align:center;margin-top:3px">El informe se enviará directamente al jefe de obra</p>`
     :'<p style="font-size:11px;color:#b45309;text-align:center;margin-top:8px">Configura el email del Jefe de Obra en la sección Obras</p>'}
     <div id="step4-result"></div>
     ${(()=>{
@@ -1091,38 +1091,36 @@ function copyEmail(email){
   }
 }
 
-function handleSharePDF(){
+function handleSendEmail(){
   if(!rfPdfBlob) return
   const p=projects.find(x=>x.id===rf.projectId)
   const weekStr='Semana '+rf.weekNumber+'/'+rf.year
   const filename='Informe_'+p.code+'_S'+rf.weekNumber+'_'+rf.year+'.pdf'
   const subject='['+p.code+'] Informe '+weekStr
-  const bodyText='Un saludo '+(p&&p.managerEmail?p.managerEmail:'')+'. Adjunto envío informe de avances de la obra "'+(p?p.name+' ('+p.code+')':'')+'" para la '+weekStr+'.'
-  const file=new File([rfPdfBlob], filename, {type:'application/pdf'})
-
-  function _fallback(){
-    // Abrir gestor de correo con Para/Asunto/Cuerpo pre-rellenados
-    var mailto='mailto:'+(p&&p.managerEmail?encodeURIComponent(p.managerEmail):'')+
-      '?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(bodyText)
-    window.location.href=mailto
-    // Mostrar el PDF en nueva pestaña para que el usuario lo descargue/adjunte
-    var bUrl=URL.createObjectURL(rfPdfBlob)
-    setTimeout(function(){ window.open(bUrl,'_blank'); URL.revokeObjectURL(bUrl) },500)
-    showResult('step4-result','Correo abierto con los datos rellenos. Adjunta el PDF que se ha abierto en el navegador.',false)
-  }
-
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    navigator.share({files:[file], title:subject, text:bodyText}).then(function(){
-      reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
-      saveReports(); renderStep4()
-      showResult('step4-result','Informe compartido correctamente',true)
+  const btn=document.getElementById('btn-send')
+  if(btn){ btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Enviando…' }
+  const reader=new FileReader()
+  reader.onload=function(e){
+    const base64=e.target.result.split(',')[1]
+    fetch('/api/send-report',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({to:p.managerEmail,subject:subject,htmlBody:buildEmailHtml(p,weekStr),pdfBase64:base64,pdfFilename:filename})
+    }).then(function(r){ return r.json() }).then(function(data){
+      if(data.success){
+        reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
+        saveReports(); renderStep4()
+        showResult('step4-result','✓ Informe enviado a '+esc(p.managerEmail),true)
+      } else {
+        if(btn){ btn.disabled=false; renderStep4() }
+        showResult('step4-result','Error al enviar: '+data.error,false)
+      }
     }).catch(function(err){
-      if(err.name==='AbortError') return
-      _fallback()
+      if(btn){ btn.disabled=false; renderStep4() }
+      showResult('step4-result','Error al enviar: '+err.message,false)
     })
-  } else {
-    _fallback()
   }
+  reader.readAsDataURL(rfPdfBlob)
 }
 
 function buildEmailHtml(p,weekStr){

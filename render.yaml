@@ -1,9 +1,9 @@
 services:
   - type: web
     name: obra-report
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server/index.js
     envVars:
       - key: SMTP_HOST
         value: smtp.gmail.com

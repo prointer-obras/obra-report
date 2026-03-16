@@ -1,4 +1,4 @@
-const CACHE = 'obra-report-v17';
+const CACHE = 'obra-report-v18';
 const ASSETS = [
   '/',
   '/manifest.json',
