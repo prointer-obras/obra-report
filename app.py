@@ -2,13 +2,19 @@
 Informes de Obra - Backend Flask
 """
 from flask import Flask, request, jsonify, send_from_directory
-import base64, os, requests as http
+import base64, os, smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 
-resend_cfg = {
-    'api_key': os.environ.get('RESEND_API_KEY', ''),
-    'from':    os.environ.get('RESEND_FROM', 'Informes de Obra <onboarding@resend.dev>'),
+smtp_cfg = {
+    'host':     os.environ.get('SMTP_HOST', 'smtp.gmail.com'),
+    'port':     int(os.environ.get('SMTP_PORT', '587')),
+    'user':     os.environ.get('SMTP_USER', ''),
+    'password': os.environ.get('SMTP_PASS', ''),
 }
 
 def cors(response):
@@ -28,17 +34,17 @@ def static_files(path):
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'resend_configured': bool(resend_cfg['api_key'])})
+    return jsonify({'status': 'ok', 'smtp_configured': bool(smtp_cfg['user'] and smtp_cfg['password'])})
 
 @app.route('/api/send-report', methods=['POST', 'OPTIONS'])
 def send_report():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
-    if not resend_cfg['api_key']:
-        return jsonify({'success': False, 'error': 'Falta la variable RESEND_API_KEY en el servidor.'}), 400
+    if not smtp_cfg['user'] or not smtp_cfg['password']:
+        return jsonify({'success': False, 'error': 'Servidor de correo no configurado. Contacta al administrador.'}), 400
 
-    # Acepta multipart/form-data (binario) o JSON+base64 (legacy)
+    # Acepta multipart/form-data (binario) o JSON+base64
     ct = request.content_type or ''
     if 'multipart/form-data' in ct:
         to        = request.form.get('to', '')
@@ -57,32 +63,25 @@ def send_report():
         pdf_name  = data.get('pdfFilename', 'informe.pdf')
 
     try:
-        payload = {
-            'from':    resend_cfg['from'],
-            'to':      [to],
-            'subject': subject,
-            'html':    html_body,
-        }
-        if pdf_bytes:
-            payload['attachments'] = [{
-                'filename': pdf_name,
-                'content':  base64.b64encode(pdf_bytes).decode('utf-8'),
-            }]
+        msg = MIMEMultipart()
+        msg['From'] = f'Informes de Obra <{smtp_cfg["user"]}>'
+        msg['To'] = to
+        msg['Subject'] = subject
+        msg.attach(MIMEText(html_body, 'html'))
 
-        resp = http.post(
-            'https://api.resend.com/emails',
-            headers={
-                'Authorization': f'Bearer {resend_cfg["api_key"]}',
-                'Content-Type':  'application/json',
-            },
-            json=payload,
-            timeout=25,
-        )
-        resp_data = resp.json()
-        if resp.status_code in (200, 201):
-            return jsonify({'success': True})
-        else:
-            return jsonify({'success': False, 'error': resp_data.get('message', f'Resend error {resp.status_code}')}), 500
+        if pdf_bytes:
+            part = MIMEBase('application', 'pdf')
+            part.set_payload(pdf_bytes)
+            encoders.encode_base64(part)
+            part.add_header('Content-Disposition', f'attachment; filename="{pdf_name}"')
+            msg.attach(part)
+
+        with smtplib.SMTP(smtp_cfg['host'], smtp_cfg['port']) as server:
+            server.starttls()
+            server.login(smtp_cfg['user'], smtp_cfg['password'])
+            server.send_message(msg)
+
+        return jsonify({'success': True})
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
