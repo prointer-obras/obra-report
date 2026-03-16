@@ -1106,9 +1106,12 @@ async function handleSharePDF(){
       saveReports(); renderStep4()
       showResult('step4-result','Informe compartido correctamente',true)
     }catch(err){
-      if(err.name!=='AbortError'){
-        showResult('step4-result','Error al compartir: '+err.message,false)
-      }
+      if(err.name==='AbortError') return
+      // Fallback: descargar el PDF si el share falla (ej. Android Permission denied)
+      var bUrl=URL.createObjectURL(rfPdfBlob)
+      var a=document.createElement('a'); a.href=bUrl; a.download=filename; a.click()
+      URL.revokeObjectURL(bUrl)
+      showResult('step4-result','PDF descargado. Adjúntalo al email'+(p&&p.managerEmail?' para '+esc(p.managerEmail):'')+'.',false)
     }
   } else {
     // Fallback escritorio: descargar PDF
