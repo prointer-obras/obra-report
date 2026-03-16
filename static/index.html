@@ -443,9 +443,9 @@ function renderHome(){
             <div style="font-size:12px;color:#64748b;margin-top:2px">${esc(p.managerEmail)}</div>
           </div>
         </div>
-        <button class="btn ${sentThisWeek?'btn-secondary':'btn-primary'} btn-full mt-3" onclick="startReport('${p.id}')">
+        <button class="btn ${sentThisWeek?'btn-secondary':'btn-primary'} btn-full mt-3" ${sentThisWeek?'disabled':''} onclick="startReport('${p.id}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          ${sentThisWeek?`Nuevo Informe Sem. ${cw}`:draftThisWeek?`Continuar Borrador Sem. ${cw}`:`Informe Semana ${cw}`}
+          ${sentThisWeek?`✓ Informe Sem. ${cw} enviado`:draftThisWeek?`Continuar Borrador Sem. ${cw}`:`Informe Semana ${cw}`}
         </button>
       </div>
       ${total>0?`
@@ -602,6 +602,8 @@ function startReport(projectId, reportId=null){
   if(reportId){
     existing=reports.find(r=>r.id===reportId)
   } else {
+    const sentBlock=reports.find(r=>r.projectId===projectId&&r.weekNumber===cw&&r.year===cy&&r.status==='sent')
+    if(sentBlock){ alert('Ya existe un informe enviado para la semana '+cw+'/'+cy+' en esta obra.'); return }
     existing=reports.find(r=>r.projectId===projectId&&r.weekNumber===cw&&r.year===cy&&r.status==='draft')
   }
   function _launch(){
