@@ -1126,8 +1126,6 @@ function handleSendEmail(){
       if(btn){ btn.disabled=false; renderStep4() }
       showResult('step4-result','Error al enviar: '+err.message,false)
     })
-  }
-  reader.readAsDataURL(rfPdfBlob)
 }
 
 function buildEmailHtml(p,weekStr){
