@@ -6,8 +6,9 @@ import base64, os, requests as req
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 
-RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
-FROM_EMAIL     = os.environ.get('FROM_EMAIL', 'Informes de Obra <onboarding@resend.dev>')
+BREVO_API_KEY  = os.environ.get('BREVO_API_KEY', '')
+FROM_EMAIL     = os.environ.get('FROM_EMAIL', 'obrareport@gmail.com')
+FROM_NAME      = os.environ.get('FROM_NAME', 'Informes de Obra')
 
 def cors(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -26,15 +27,15 @@ def static_files(path):
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'resend_configured': bool(RESEND_API_KEY)})
+    return jsonify({'status': 'ok', 'brevo_configured': bool(BREVO_API_KEY)})
 
 @app.route('/api/send-report', methods=['POST', 'OPTIONS'])
 def send_report():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
-    if not RESEND_API_KEY:
-        return jsonify({'success': False, 'error': 'Clave Resend no configurada. Contacta al administrador.'}), 400
+    if not BREVO_API_KEY:
+        return jsonify({'success': False, 'error': 'Clave Brevo no configurada. Contacta al administrador.'}), 400
 
     try:
         ct = request.content_type or ''
@@ -58,22 +59,22 @@ def send_report():
 
     try:
         payload = {
-            'from':    FROM_EMAIL,
-            'to':      [to],
-            'subject': subject,
-            'html':    html_body,
+            'sender':      {'name': FROM_NAME, 'email': FROM_EMAIL},
+            'to':          [{'email': to}],
+            'subject':     subject,
+            'htmlContent': html_body,
         }
         if pdf_bytes:
-            payload['attachments'] = [{
-                'filename': pdf_name,
-                'content':  base64.b64encode(pdf_bytes).decode('utf-8'),
+            payload['attachment'] = [{
+                'name':    pdf_name,
+                'content': base64.b64encode(pdf_bytes).decode('utf-8'),
             }]
 
         resp = req.post(
-            'https://api.resend.com/emails',
+            'https://api.brevo.com/v3/smtp/email',
             headers={
-                'Authorization':  f'Bearer {RESEND_API_KEY}',
-                'Content-Type':   'application/json',
+                'api-key':      BREVO_API_KEY,
+                'Content-Type': 'application/json',
             },
             json=payload,
             timeout=30,
@@ -82,7 +83,7 @@ def send_report():
         if resp.status_code in (200, 201):
             return jsonify({'success': True})
         else:
-            return jsonify({'success': False, 'error': f'Error Resend {resp.status_code}: {resp.text}'}), 500
+            return jsonify({'success': False, 'error': f'Error Brevo {resp.status_code}: {resp.text}'}), 500
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
