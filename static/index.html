@@ -1106,7 +1106,11 @@ function handleSendEmail(){
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({to:p.managerEmail,subject:subject,htmlBody:buildEmailHtml(p,weekStr),pdfBase64:base64,pdfFilename:filename})
-    }).then(function(r){ return r.json() }).then(function(data){
+    }).then(function(r){
+      var ct=r.headers.get('content-type')||''
+      if(!ct.includes('application/json')) return {success:false,error:'El servidor está arrancando, espera unos segundos e inténtalo de nuevo.'}
+      return r.json()
+    }).then(function(data){
       if(data.success){
         reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
         saveReports(); renderStep4()
