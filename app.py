@@ -44,23 +44,25 @@ def send_report():
     if not smtp_cfg['user'] or not smtp_cfg['password']:
         return jsonify({'success': False, 'error': 'Servidor de correo no configurado. Contacta al administrador.'}), 400
 
-    # Acepta multipart/form-data (binario) o JSON+base64
-    ct = request.content_type or ''
-    if 'multipart/form-data' in ct:
-        to        = request.form.get('to', '')
-        subject   = request.form.get('subject', 'Informe Semanal')
-        html_body = request.form.get('htmlBody', '')
-        pdf_file  = request.files.get('pdf')
-        pdf_bytes = pdf_file.read() if pdf_file else None
-        pdf_name  = pdf_file.filename if pdf_file else 'informe.pdf'
-    else:
-        data      = request.get_json(force=True)
-        to        = data.get('to', '')
-        subject   = data.get('subject', 'Informe Semanal')
-        html_body = data.get('htmlBody', '')
-        pdf_b64   = data.get('pdfBase64', '')
-        pdf_bytes = base64.b64decode(pdf_b64) if pdf_b64 else None
-        pdf_name  = data.get('pdfFilename', 'informe.pdf')
+    try:
+        ct = request.content_type or ''
+        if 'multipart/form-data' in ct:
+            to        = request.form.get('to', '')
+            subject   = request.form.get('subject', 'Informe Semanal')
+            html_body = request.form.get('htmlBody', '')
+            pdf_file  = request.files.get('pdf')
+            pdf_bytes = pdf_file.read() if pdf_file else None
+            pdf_name  = pdf_file.filename if pdf_file else 'informe.pdf'
+        else:
+            data      = request.get_json(force=True) or {}
+            to        = data.get('to', '')
+            subject   = data.get('subject', 'Informe Semanal')
+            html_body = data.get('htmlBody', '')
+            pdf_b64   = data.get('pdfBase64', '')
+            pdf_bytes = base64.b64decode(pdf_b64) if pdf_b64 else None
+            pdf_name  = data.get('pdfFilename', 'informe.pdf')
+    except Exception as e:
+        return jsonify({'success': False, 'error': 'Error leyendo petición: ' + str(e)}), 400
 
     try:
         msg = MIMEMultipart()
