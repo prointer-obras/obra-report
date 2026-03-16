@@ -1091,34 +1091,37 @@ function copyEmail(email){
   }
 }
 
-async function handleSharePDF(){
+function handleSharePDF(){
   if(!rfPdfBlob) return
   const p=projects.find(x=>x.id===rf.projectId)
-  const weekStr=`Semana ${rf.weekNumber}/${rf.year}`
-  const filename=`Informe_${p.code}_S${rf.weekNumber}_${rf.year}.pdf`
+  const weekStr='Semana '+rf.weekNumber+'/'+rf.year
+  const filename='Informe_'+p.code+'_S'+rf.weekNumber+'_'+rf.year+'.pdf'
+  const subject='['+p.code+'] Informe '+weekStr
   const bodyText='Un saludo '+(p&&p.managerEmail?p.managerEmail:'')+'. Adjunto envío informe de avances de la obra "'+(p?p.name+' ('+p.code+')':'')+'" para la '+weekStr+'.'
   const file=new File([rfPdfBlob], filename, {type:'application/pdf'})
 
+  function _fallback(){
+    // Abrir gestor de correo con Para/Asunto/Cuerpo pre-rellenados
+    var mailto='mailto:'+(p&&p.managerEmail?encodeURIComponent(p.managerEmail):'')+
+      '?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(bodyText)
+    window.location.href=mailto
+    // Mostrar el PDF en nueva pestaña para que el usuario lo descargue/adjunte
+    var bUrl=URL.createObjectURL(rfPdfBlob)
+    setTimeout(function(){ window.open(bUrl,'_blank'); URL.revokeObjectURL(bUrl) },500)
+    showResult('step4-result','Correo abierto con los datos rellenos. Adjunta el PDF que se ha abierto en el navegador.',false)
+  }
+
   if(navigator.canShare && navigator.canShare({files:[file]})){
-    try{
-      await navigator.share({files:[file], text:bodyText})
+    navigator.share({files:[file], title:subject, text:bodyText}).then(function(){
       reports=reports.map(r=>r.id===editingReportId?{...r,...rf,status:'sent',sentAt:new Date().toISOString()}:r)
       saveReports(); renderStep4()
       showResult('step4-result','Informe compartido correctamente',true)
-    }catch(err){
+    }).catch(function(err){
       if(err.name==='AbortError') return
-      // Fallback: descargar el PDF si el share falla (ej. Android Permission denied)
-      var bUrl=URL.createObjectURL(rfPdfBlob)
-      var a=document.createElement('a'); a.href=bUrl; a.download=filename; a.click()
-      URL.revokeObjectURL(bUrl)
-      showResult('step4-result','PDF descargado. Adjúntalo al email'+(p&&p.managerEmail?' para '+esc(p.managerEmail):'')+'.',false)
-    }
+      _fallback()
+    })
   } else {
-    // Fallback escritorio: descargar PDF
-    var bUrl=URL.createObjectURL(rfPdfBlob)
-    var a=document.createElement('a'); a.href=bUrl; a.download=filename; a.click()
-    URL.revokeObjectURL(bUrl)
-    showResult('step4-result','PDF descargado. Adjúntalo al email'+(p&&p.managerEmail?' para '+esc(p.managerEmail):'')+'.',false)
+    _fallback()
   }
 }
 
